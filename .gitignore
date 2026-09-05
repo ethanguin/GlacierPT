@@ -1,0 +1,106 @@
+# ============================================================
+# Build output
+# ============================================================
+
+build/
+out/
+bin/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# Visual Studio generated files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ============================================================
+# Visual Studio / VS Code
+# ============================================================
+
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ============================================================
+# Compiled binaries
+# ============================================================
+
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.exp
+
+# ============================================================
+# Shader compilation output
+# ============================================================
+
+# SPIR-V binaries
+*.spv
+
+# Shader compiler caches
+shader_cache/
+shader_cache/**
+.cache/
+
+# ============================================================
+# Temporary files
+# ============================================================
+
+*.tmp
+*.temp
+*.log
+
+# ============================================================
+# OS files
+# ============================================================
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# ============================================================
+# Profiling / debugging output
+# ============================================================
+
+captures/
+profiles/
+
+# RenderDoc captures
+*.rdc
+
+# ============================================================
+# Generated renderer data
+# ============================================================
+
+generated/
+generated_assets/
+generated_shaders/
+
+# ============================================================
+# Local configuration
+# ============================================================
+
+# Ignore personal/local configuration if you create one
+config.local.json
