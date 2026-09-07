@@ -3,32 +3,25 @@
 
     "configurePresets": [
         {
-            "name": "debug",
-            "displayName": "Debug - VS2022 MSVC x64",
+            "name": "vs2022",
+            "displayName": "VS2022 MSVC x64",
             "generator": "Visual Studio 17 2022",
             "architecture": "x64",
-            "binaryDir": "${sourceDir}/build/debug"
-        },
-        {
-            "name": "release",
-            "displayName": "Release - VS2022 MSVC x64",
-            "generator": "Visual Studio 17 2022",
-            "architecture": "x64",
-            "binaryDir": "${sourceDir}/build/release"
+            "binaryDir": "${sourceDir}/build"
         }
     ],
 
     "buildPresets": [
         {
             "name": "debug",
-            "displayName": "Build Debug",
-            "configurePreset": "debug",
+            "displayName": "Debug",
+            "configurePreset": "vs2022",
             "configuration": "Debug"
         },
         {
             "name": "release",
-            "displayName": "Build Release",
-            "configurePreset": "release",
+            "displayName": "Release",
+            "configurePreset": "vs2022",
             "configuration": "Release"
         }
     ]

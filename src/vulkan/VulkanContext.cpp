@@ -104,6 +104,22 @@ void VulkanContext::initialize(GLFWwindow* window)
 
     m_graphicsQueue = graphicsQueueResult.value();
 
+
+    auto graphicsQueueIndexResult =
+        m_vkbDevice.get_queue_index(vkb::QueueType::graphics);
+
+    if (!graphicsQueueIndexResult)
+    {
+        throw std::runtime_error(
+            "Failed to get graphics queue family index: " +
+            graphicsQueueIndexResult.error().message()
+        );
+    }
+
+    m_graphicsQueueFamilyIndex =
+        graphicsQueueIndexResult.value();
+
+
     auto presentQueueResult =
         m_vkbDevice.get_queue(vkb::QueueType::present);
 

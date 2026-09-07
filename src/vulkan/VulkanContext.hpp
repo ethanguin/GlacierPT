@@ -18,6 +18,7 @@ public:
 
     VkQueue graphicsQueue() const { return m_graphicsQueue; }
     VkQueue presentQueue() const { return m_presentQueue; }
+    uint32_t graphicsQueueFamilyIndex() const { return m_graphicsQueueFamilyIndex; }
 
 private:
     vkb::Instance m_vkbInstance{};
@@ -31,6 +32,8 @@ private:
 
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     VkQueue m_presentQueue = VK_NULL_HANDLE;
+
+    uint32_t m_graphicsQueueFamilyIndex = 0;
 
     VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
 };

@@ -29,6 +29,7 @@ compile_commands.json
 
 .vs/
 .vscode/*
+.vscode/
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
