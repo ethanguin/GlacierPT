@@ -69,7 +69,6 @@ VkExtent2D chooseExtent(
 
 }
 
-#pragma message("VulkanSwapchain.cpp COMPILING - build marker XYZ123")
 void VulkanSwapchain::initialize(
     VkPhysicalDevice physicalDevice,
     VkDevice device,

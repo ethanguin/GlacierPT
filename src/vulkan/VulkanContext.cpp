@@ -14,62 +14,74 @@ void VulkanContext::initialize(GLFWwindow* window)
     }
 
     // Steps to create a Vulkan render context
+    std::cout << "\nVULKAN INITIALIZATION:\n";
     createInstance();
-    createSurface(window);
-    selectPhysicalDevice();
-    queryDeviceProperties();
-    createLogicalDevice();
-    getQueues();
-
-    // Report
     std::cout << "Vulkan instance created.\n";
+    createSurface(window);
     std::cout << "Vulkan surface created.\n";
+    selectPhysicalDevice();
     std::cout << "Selected GPU: "
               << m_deviceProperties.deviceName
               << '\n';
+    queryDeviceProperties();
+    createLogicalDevice();
     std::cout << "Logical device created.\n";
+    getQueues();
     std::cout << "Graphics and present queues acquired.\n";
+    createVMA();
+    std::cout << "Vulkan Memory Allocator created.\n";
 }
 
 void VulkanContext::shutdown()
 {
+    std::cout << "\nVULKAN SHUTDOWN\n";
     if (m_device != VK_NULL_HANDLE)
     {
-        vkDeviceWaitIdle(m_device);
-        vkDestroyDevice(m_device, nullptr);
-        m_device = VK_NULL_HANDLE;
+        std::cout << "Waiting for device\n";
+
+        VkResult result = vkDeviceWaitIdle(m_device);
     }
+
+    std::cout << "Destroying VMA allocator\n";
+
+    m_allocator.shutdown();
 
     if (m_surface != VK_NULL_HANDLE)
     {
-        vkDestroySurfaceKHR(
-            m_instance,
-            m_surface,
-            nullptr
-        );
+        std::cout << "Destroying surface\n";
 
+        vkb::destroy_surface(
+            m_vkbInstance,
+            m_surface
+        );
         m_surface = VK_NULL_HANDLE;
     }
 
-    if (m_debugMessenger != VK_NULL_HANDLE)
+    if (m_vkbDevice.device != VK_NULL_HANDLE)
     {
-        vkb::destroy_debug_utils_messenger(m_instance, m_debugMessenger);
-        m_debugMessenger = VK_NULL_HANDLE;
+        std::cout << "Destroying device\n";
+
+        vkb::destroy_device(m_vkbDevice);
+
+        m_vkbDevice = {};
+        m_device = VK_NULL_HANDLE;
     }
 
-    if (m_instance != VK_NULL_HANDLE)
+    if (m_vkbInstance.instance != VK_NULL_HANDLE)
     {
-        vkDestroyInstance(
-            m_instance,
-            nullptr
-        );
+        std::cout << "Destroying instance\n";
 
+        vkb::destroy_instance(m_vkbInstance);
+
+        m_vkbInstance = {};
         m_instance = VK_NULL_HANDLE;
     }
 
     m_physicalDevice = VK_NULL_HANDLE;
     m_graphicsQueue = VK_NULL_HANDLE;
     m_presentQueue = VK_NULL_HANDLE;
+
+    std::cout << "Vulkan shutdown complete\n";
 }
 
 
@@ -244,6 +256,15 @@ void VulkanContext::getQueues()
     vkGetPhysicalDeviceProperties(
         m_physicalDevice,
         &properties
+    );
+}
+
+void VulkanContext::createVMA()
+{
+    m_allocator.initialize(
+        m_instance,
+        m_physicalDevice,
+        m_device
     );
 }
 

@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 
 #include <VkBootstrap.h>
+#include "VulkanAllocator.hpp"
 
 class VulkanContext
 {
@@ -19,6 +20,9 @@ public:
     VkQueue graphicsQueue() const { return m_graphicsQueue; }
     VkQueue presentQueue() const { return m_presentQueue; }
     uint32_t graphicsQueueFamilyIndex() const { return m_graphicsQueueFamilyIndex; }
+
+    // Allocator
+    VulkanAllocator& allocator() { return m_allocator; }
 
 private:
     vkb::Instance m_vkbInstance{};
@@ -40,12 +44,16 @@ private:
     uint32_t m_graphicsQueueFamilyIndex = 0;
 
     VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
+
+    // Memory Allocators
+    VulkanAllocator m_allocator;
     
     void createInstance();
     void createSurface(GLFWwindow* window);
     void selectPhysicalDevice();
     void createLogicalDevice();
     void getQueues();
+    void createVMA();
 
     void setupDeviceFeatures(); // helper function for setting up physical/logical device
     void queryDeviceProperties();
