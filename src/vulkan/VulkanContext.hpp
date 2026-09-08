@@ -28,7 +28,11 @@ private:
     VkSurfaceKHR m_surface = VK_NULL_HANDLE;
 
     VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+    vkb::PhysicalDevice m_vkbPhysicalDevice;
     VkDevice m_device = VK_NULL_HANDLE;
+
+    VkPhysicalDeviceProperties m_deviceProperties{};
+    VkPhysicalDeviceFeatures m_deviceFeatures{};
 
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     VkQueue m_presentQueue = VK_NULL_HANDLE;
@@ -36,4 +40,13 @@ private:
     uint32_t m_graphicsQueueFamilyIndex = 0;
 
     VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
+    
+    void createInstance();
+    void createSurface(GLFWwindow* window);
+    void selectPhysicalDevice();
+    void createLogicalDevice();
+    void getQueues();
+
+    void setupDeviceFeatures(); // helper function for setting up physical/logical device
+    void queryDeviceProperties();
 };
