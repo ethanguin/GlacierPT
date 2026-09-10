@@ -3,12 +3,38 @@
 
     "configurePresets": [
         {
-            "name": "vs2022",
-            "displayName": "VS2022 MSVC x64",
+            "name": "windows",
+            "displayName": "Windows - VS2022 MSVC x64",
             "generator": "Visual Studio 17 2022",
             "architecture": "x64",
-            "binaryDir": "${sourceDir}/build",
+            "binaryDir": "${sourceDir}/build/windows",
             "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+
+        {
+            "name": "linux-debug",
+            "displayName": "Linux - GCC Debug",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/linux-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+
+        {
+            "name": "linux-release",
+            "displayName": "Linux - GCC Release",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/linux-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
         }
@@ -16,16 +42,29 @@
 
     "buildPresets": [
         {
-            "name": "debug",
-            "displayName": "Debug",
-            "configurePreset": "vs2022",
+            "name": "windows-debug",
+            "displayName": "Windows Debug",
+            "configurePreset": "windows",
             "configuration": "Debug"
         },
+
         {
-            "name": "release",
-            "displayName": "Release",
-            "configurePreset": "vs2022",
+            "name": "windows-release",
+            "displayName": "Windows Release",
+            "configurePreset": "windows",
             "configuration": "Release"
+        },
+
+        {
+            "name": "linux-debug",
+            "displayName": "Linux Debug",
+            "configurePreset": "linux-debug"
+        },
+
+        {
+            "name": "linux-release",
+            "displayName": "Linux Release",
+            "configurePreset": "linux-release"
         }
     ]
 }
