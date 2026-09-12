@@ -1,0 +1,36 @@
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Line length
+ColumnLimit: 100
+
+# Braces
+BreakBeforeBraces: Attach
+
+# Spaces
+SpaceBeforeParens: ControlStatements
+SpaceBeforeAssignmentOperators: true
+
+# Pointer/reference alignment
+PointerAlignment: Left
+
+# Short constructs
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+
+# Arguments / parameters
+BinPackArguments: true
+BinPackParameters: true
+
+# Includes
+SortIncludes: CaseSensitive
+
+# C++
+NamespaceIndentation: None
+AccessModifierOffset: -4
