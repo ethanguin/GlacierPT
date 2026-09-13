@@ -60,9 +60,9 @@ void VulkanRenderer::drawFrame() {
 
     recordCommandBuffer(frame.commandBuffer, imageIndex);
 
-    submitFrame(frame);
+    submitFrame(frame, imageIndex);
 
-    result = m_swapchain.present(m_context.presentQueue(), imageIndex, frame.renderFinished);
+    result = m_swapchain.present(m_context.presentQueue(), imageIndex, m_renderFinished[imageIndex]);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         recreateSwapchain();
@@ -83,13 +83,25 @@ void VulkanRenderer::createFrames() {
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
+    // One image-available semaphore and command buffer per frame in flight.
     for (auto& frame : m_frames) {
         frame.commandBuffer = m_commands.allocateCommandBuffer();
 
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame.imageAvailable) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame.renderFinished) != VK_SUCCESS ||
-            vkCreateFence(device, &fenceInfo, nullptr, &frame.renderFence) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create frame synchronization objects.");
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame.imageAvailable) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create image-available semaphore.");
+        }
+
+        if (vkCreateFence(device, &fenceInfo, nullptr, &frame.renderFence) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create render fence.");
+        }
+    }
+
+    // One render-finished semaphore per swapchain image.
+    m_renderFinished.resize(m_swapchain.images().size());
+
+    for (VkSemaphore& semaphore : m_renderFinished) {
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &semaphore) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create render-finished semaphore.");
         }
     }
 }
@@ -108,16 +120,19 @@ void VulkanRenderer::destroyFrames() {
             frame.imageAvailable = VK_NULL_HANDLE;
         }
 
-        if (frame.renderFinished != VK_NULL_HANDLE) {
-            vkDestroySemaphore(device, frame.renderFinished, nullptr);
-            frame.renderFinished = VK_NULL_HANDLE;
-        }
-
         if (frame.renderFence != VK_NULL_HANDLE) {
             vkDestroyFence(device, frame.renderFence, nullptr);
             frame.renderFence = VK_NULL_HANDLE;
         }
     }
+
+    for (VkSemaphore semaphore : m_renderFinished) {
+        if (semaphore != VK_NULL_HANDLE) {
+            vkDestroySemaphore(device, semaphore, nullptr);
+        }
+    }
+
+    m_renderFinished.clear();
 }
 
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex) {
@@ -236,7 +251,7 @@ void VulkanRenderer::recreateSwapchain() {
     m_swapchain.recreate(m_context.physicalDevice(), device, m_context.surface(), width, height);
 }
 
-void VulkanRenderer::submitFrame(VulkanFrame& frame) {
+void VulkanRenderer::submitFrame(VulkanFrame& frame, uint32_t imageIndex) {
     VkSemaphore waitSemaphores[] = {frame.imageAvailable};
 
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -251,7 +266,7 @@ void VulkanRenderer::submitFrame(VulkanFrame& frame) {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &frame.commandBuffer;
 
-    VkSemaphore signalSemaphores[] = {frame.renderFinished};
+    VkSemaphore signalSemaphores[] = {m_renderFinished[imageIndex]};
 
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;

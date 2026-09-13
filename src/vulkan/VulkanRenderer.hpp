@@ -6,6 +6,7 @@
 #include "VulkanFrame.hpp"
 
 #include <array>
+#include <vector>
 
 class VulkanRenderer {
 public:
@@ -22,13 +23,15 @@ private:
 
     void recreateSwapchain();
 
-    void submitFrame(VulkanFrame& frame);
+    void submitFrame(VulkanFrame& frame, uint32_t imageIndex);
 
     GLFWwindow* m_window = nullptr;
 
     VulkanContext m_context;
     VulkanSwapchain m_swapchain;
     VulkanCommands m_commands;
+
+    std::vector<VkSemaphore> m_renderFinished;
 
     std::array<VulkanFrame, MAX_FRAMES_IN_FLIGHT> m_frames;
 
