@@ -10,12 +10,10 @@ public:
 
     void shutdown();
 
-    VkResult acquireNextImage(VkSemaphore imageAvailable, uint32_t imageIndex);
-
+    VkResult acquireNextImage(VkSemaphore imageAvailable, uint32_t& imageIndex);
     VkResult present(VkQueue presentQueue, uint32_t imageIndex, VkSemaphore renderFinished);
 
-    // TODO implement recreate function
-    void recreate() {};
+    void recreate(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, uint32_t width, uint32_t height);
 
     VkSwapchainKHR swapchain() const {
         return m_swapchain;

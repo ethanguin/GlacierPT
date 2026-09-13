@@ -8,34 +8,44 @@ void VulkanContext::initialize(GLFWwindow* window) {
         throw std::runtime_error("VulkanContext requires a valid GLFW window.");
     }
 
-    // Steps to create a Vulkan render context
     std::cout << "\nVULKAN INITIALIZATION:\n";
+
     createInstance();
     std::cout << "Vulkan instance created.\n";
+
     createSurface(window);
     std::cout << "Vulkan surface created.\n";
+
     configureDeviceFeatures();
     selectPhysicalDevice();
     queryDeviceProperties();
+
     std::cout << "Selected GPU: " << m_deviceProperties.deviceName << '\n';
+
     createLogicalDevice();
     std::cout << "Logical device created.\n";
+
     getQueues();
     std::cout << "Graphics and present queues acquired.\n";
+
     createVMA();
     std::cout << "Vulkan Memory Allocator created.\n";
 }
 
 void VulkanContext::shutdown() {
     std::cout << "\nVULKAN SHUTDOWN\n";
+
     if (m_device != VK_NULL_HANDLE) {
         std::cout << "Waiting for device\n";
 
         VkResult result = vkDeviceWaitIdle(m_device);
+
+        if (result != VK_SUCCESS) {
+            std::cerr << "Warning: vkDeviceWaitIdle failed during shutdown.\n";
+        }
     }
 
     std::cout << "Destroying VMA allocator\n";
-
     m_allocator.shutdown();
 
     if (m_surface != VK_NULL_HANDLE) {
@@ -66,6 +76,7 @@ void VulkanContext::shutdown() {
     m_physicalDevice = VK_NULL_HANDLE;
     m_graphicsQueue = VK_NULL_HANDLE;
     m_presentQueue = VK_NULL_HANDLE;
+    m_graphicsQueueFamilyIndex = 0;
 
     std::cout << "Vulkan shutdown complete\n";
 }
@@ -91,27 +102,31 @@ void VulkanContext::createInstance() {
 }
 
 void VulkanContext::createSurface(GLFWwindow* window) {
-    VkResult surfaceResult = glfwCreateWindowSurface(m_instance, window, nullptr, &m_surface);
+    VkResult result = glfwCreateWindowSurface(m_instance, window, nullptr, &m_surface);
 
-    if (surfaceResult != VK_SUCCESS) {
+    if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Vulkan surface.");
     }
 }
 
 void VulkanContext::configureDeviceFeatures() {
+    m_features12 = {};
     m_features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
     m_features12.bufferDeviceAddress = VK_TRUE;
 
+    m_features13 = {};
     m_features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 
     m_features13.dynamicRendering = VK_TRUE;
     m_features13.synchronization2 = VK_TRUE;
 
+    m_accelerationStructureFeatures = {};
     m_accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 
     m_accelerationStructureFeatures.accelerationStructure = VK_TRUE;
 
+    m_rayTracingPipelineFeatures = {};
     m_rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
 
     m_rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;

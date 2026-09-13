@@ -178,7 +178,7 @@ void VulkanSwapchain::shutdown() {
     m_device = VK_NULL_HANDLE;
 }
 
-VkResult VulkanSwapchain::acquireNextImage(VkSemaphore imageAvailable, uint32_t imageIndex) {
+VkResult VulkanSwapchain::acquireNextImage(VkSemaphore imageAvailable, uint32_t& imageIndex) {
     return vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, imageAvailable, VK_NULL_HANDLE, &imageIndex);
 }
 
@@ -195,4 +195,26 @@ VkResult VulkanSwapchain::present(VkQueue presentQueue, uint32_t imageIndex, VkS
     presentInfo.pImageIndices = &imageIndex;
 
     return vkQueuePresentKHR(presentQueue, &presentInfo);
+}
+
+void VulkanSwapchain::recreate(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, uint32_t width, uint32_t height) {
+    if (width == 0 || height == 0) {
+        return;
+    }
+
+    for (VkImageView imageView : m_imageViews) {
+        if (imageView != VK_NULL_HANDLE) {
+            vkDestroyImageView(device, imageView, nullptr);
+        }
+    }
+
+    m_imageViews.clear();
+    m_images.clear();
+
+    if (m_swapchain != VK_NULL_HANDLE) {
+        vkDestroySwapchainKHR(device, m_swapchain, nullptr);
+        m_swapchain = VK_NULL_HANDLE;
+    }
+
+    initialize(physicalDevice, device, surface, width, height);
 }

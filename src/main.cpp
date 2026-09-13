@@ -3,8 +3,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include "vulkan/VulkanContext.hpp"
-#include "vulkan/VulkanSwapchain.hpp"
+#include "vulkan/VulkanRenderer.hpp"
 
 int main() {
     std::cout << "Starting GlacierPT...\n";
@@ -29,18 +28,9 @@ int main() {
     std::cout << "GLFW window created.\n";
 
     try {
-        VulkanContext vulkan;
+        VulkanRenderer renderer;
 
-        vulkan.initialize(window);
-
-        VulkanSwapchain swapchain;
-
-        swapchain.initialize(vulkan.physicalDevice(), vulkan.device(), vulkan.surface(), 1280, 720);
-
-        std::cout << "Swapchain created.\n";
-        std::cout << "Swapchain images: " << swapchain.images().size() << '\n';
-
-        std::cout << "Vulkan initialized successfully.\n";
+        renderer.initialize(window);
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -48,14 +38,11 @@ int main() {
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
             }
+
+            renderer.drawFrame();
         }
-        std::cout << "Window loop exited.\n";
 
-        swapchain.shutdown();
-
-        std::cout << "Swapchain shutdown complete.\n";
-
-        vulkan.shutdown();
+        renderer.shutdown();
 
         std::cout << "Vulkan shutdown complete.\n";
     } catch (const std::exception& e) {
