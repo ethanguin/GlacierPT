@@ -6,7 +6,7 @@ TabWidth: 4
 UseTab: Never
 
 # Line length
-ColumnLimit: 100
+ColumnLimit: 150
 
 # Braces
 BreakBeforeBraces: Attach
@@ -29,7 +29,7 @@ BinPackArguments: true
 BinPackParameters: true
 
 # Includes
-SortIncludes: CaseSensitive
+SortIncludes: Never
 
 # C++
 NamespaceIndentation: None
