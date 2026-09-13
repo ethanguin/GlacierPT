@@ -38,13 +38,10 @@ int main() {
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
             }
-
             renderer.drawFrame();
         }
 
         renderer.shutdown();
-
-        std::cout << "Vulkan shutdown complete.\n";
     } catch (const std::exception& e) {
         std::cerr << "Fatal error: " << e.what() << '\n';
 

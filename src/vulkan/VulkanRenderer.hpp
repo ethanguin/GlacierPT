@@ -15,6 +15,10 @@ public:
 
     void drawFrame();
 
+    ~VulkanRenderer() {
+        shutdown();
+    }
+
 private:
     void createFrames();
     void destroyFrames();
