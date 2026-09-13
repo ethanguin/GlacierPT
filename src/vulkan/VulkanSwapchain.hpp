@@ -4,31 +4,35 @@
 
 #include <vector>
 
-class VulkanSwapchain
-{
+class VulkanSwapchain {
 public:
-    void initialize(
-        VkPhysicalDevice physicalDevice,
-        VkDevice device,
-        VkSurfaceKHR surface,
-        uint32_t width,
-        uint32_t height
-    );
+    void initialize(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, uint32_t width, uint32_t height);
 
     void shutdown();
 
-    VkSwapchainKHR swapchain() const { return m_swapchain; }
+    VkResult acquireNextImage(VkSemaphore imageAvailable, uint32_t imageIndex);
 
-    VkFormat imageFormat() const { return m_imageFormat; }
-    VkExtent2D extent() const { return m_extent; }
+    VkResult present(VkQueue presentQueue, uint32_t imageIndex, VkSemaphore renderFinished);
 
-    const std::vector<VkImage>& images() const
-    {
+    // TODO implement recreate function
+    void recreate() {};
+
+    VkSwapchainKHR swapchain() const {
+        return m_swapchain;
+    }
+
+    VkFormat imageFormat() const {
+        return m_imageFormat;
+    }
+    VkExtent2D extent() const {
+        return m_extent;
+    }
+
+    const std::vector<VkImage>& images() const {
         return m_images;
     }
 
-    const std::vector<VkImageView>& imageViews() const
-    {
+    const std::vector<VkImageView>& imageViews() const {
         return m_imageViews;
     }
 

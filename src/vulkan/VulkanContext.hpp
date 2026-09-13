@@ -1,30 +1,52 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#include <VkBootstrap.h>
 #include "VulkanAllocator.hpp"
+#include <VkBootstrap.h>
 
-class VulkanContext
-{
+class VulkanContext {
 public:
     void initialize(GLFWwindow* window);
     void shutdown();
 
-    VkInstance instance() const { return m_instance; }
-    VkSurfaceKHR surface() const { return m_surface; }
-    VkPhysicalDevice physicalDevice() const { return m_physicalDevice; }
-    VkDevice device() const { return m_device; }
+    VkInstance instance() const {
+        return m_instance;
+    }
+    VkSurfaceKHR surface() const {
+        return m_surface;
+    }
+    VkPhysicalDevice physicalDevice() const {
+        return m_physicalDevice;
+    }
+    VkDevice device() const {
+        return m_device;
+    }
 
-    VkQueue graphicsQueue() const { return m_graphicsQueue; }
-    VkQueue presentQueue() const { return m_presentQueue; }
-    uint32_t graphicsQueueFamilyIndex() const { return m_graphicsQueueFamilyIndex; }
+    VkQueue graphicsQueue() const {
+        return m_graphicsQueue;
+    }
+    VkQueue presentQueue() const {
+        return m_presentQueue;
+    }
+    uint32_t graphicsQueueFamilyIndex() const {
+        return m_graphicsQueueFamilyIndex;
+    }
 
     // Allocator
-    VulkanAllocator& allocator() { return m_allocator; }
+    VulkanAllocator& allocator() {
+        return m_allocator;
+    }
 
 private:
+    VkPhysicalDeviceVulkan12Features m_features12{};
+    VkPhysicalDeviceVulkan13Features m_features13{};
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR m_accelerationStructureFeatures{};
+
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR m_rayTracingPipelineFeatures{};
+
     vkb::Instance m_vkbInstance{};
     vkb::Device m_vkbDevice{};
 
@@ -47,14 +69,14 @@ private:
 
     // Memory Allocators
     VulkanAllocator m_allocator;
-    
+
     void createInstance();
     void createSurface(GLFWwindow* window);
+    void configureDeviceFeatures();
     void selectPhysicalDevice();
     void createLogicalDevice();
     void getQueues();
     void createVMA();
 
-    void setupDeviceFeatures(); // helper function for setting up physical/logical device
     void queryDeviceProperties();
 };

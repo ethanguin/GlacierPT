@@ -2,15 +2,10 @@
 
 #include <iostream>
 #include <stdexcept>
-#include <VkBootstrap.h>
 
-void VulkanContext::initialize(GLFWwindow* window)
-{
-    if (!window)
-    {
-        throw std::runtime_error(
-            "VulkanContext requires a valid GLFW window."
-        );
+void VulkanContext::initialize(GLFWwindow* window) {
+    if (!window) {
+        throw std::runtime_error("VulkanContext requires a valid GLFW window.");
     }
 
     // Steps to create a Vulkan render context
@@ -19,11 +14,10 @@ void VulkanContext::initialize(GLFWwindow* window)
     std::cout << "Vulkan instance created.\n";
     createSurface(window);
     std::cout << "Vulkan surface created.\n";
+    configureDeviceFeatures();
     selectPhysicalDevice();
-    std::cout << "Selected GPU: "
-              << m_deviceProperties.deviceName
-              << '\n';
     queryDeviceProperties();
+    std::cout << "Selected GPU: " << m_deviceProperties.deviceName << '\n';
     createLogicalDevice();
     std::cout << "Logical device created.\n";
     getQueues();
@@ -32,11 +26,9 @@ void VulkanContext::initialize(GLFWwindow* window)
     std::cout << "Vulkan Memory Allocator created.\n";
 }
 
-void VulkanContext::shutdown()
-{
+void VulkanContext::shutdown() {
     std::cout << "\nVULKAN SHUTDOWN\n";
-    if (m_device != VK_NULL_HANDLE)
-    {
+    if (m_device != VK_NULL_HANDLE) {
         std::cout << "Waiting for device\n";
 
         VkResult result = vkDeviceWaitIdle(m_device);
@@ -46,19 +38,14 @@ void VulkanContext::shutdown()
 
     m_allocator.shutdown();
 
-    if (m_surface != VK_NULL_HANDLE)
-    {
+    if (m_surface != VK_NULL_HANDLE) {
         std::cout << "Destroying surface\n";
 
-        vkb::destroy_surface(
-            m_vkbInstance,
-            m_surface
-        );
+        vkb::destroy_surface(m_vkbInstance, m_surface);
         m_surface = VK_NULL_HANDLE;
     }
 
-    if (m_vkbDevice.device != VK_NULL_HANDLE)
-    {
+    if (m_vkbDevice.device != VK_NULL_HANDLE) {
         std::cout << "Destroying device\n";
 
         vkb::destroy_device(m_vkbDevice);
@@ -67,8 +54,7 @@ void VulkanContext::shutdown()
         m_device = VK_NULL_HANDLE;
     }
 
-    if (m_vkbInstance.instance != VK_NULL_HANDLE)
-    {
+    if (m_vkbInstance.instance != VK_NULL_HANDLE) {
         std::cout << "Destroying instance\n";
 
         vkb::destroy_instance(m_vkbInstance);
@@ -84,25 +70,18 @@ void VulkanContext::shutdown()
     std::cout << "Vulkan shutdown complete\n";
 }
 
-
-void VulkanContext::createInstance()
-{
+void VulkanContext::createInstance() {
     vkb::InstanceBuilder instanceBuilder;
 
-    auto instanceResult = instanceBuilder
-        .set_app_name("GlacierPT")
-        .set_engine_name("GlacierPT")
-        .require_api_version(1, 3, 0)
-        .use_default_debug_messenger()
-        .request_validation_layers()
-        .build();
+    auto instanceResult = instanceBuilder.set_app_name("GlacierPT")
+                              .set_engine_name("GlacierPT")
+                              .require_api_version(1, 3, 0)
+                              .use_default_debug_messenger()
+                              .request_validation_layers()
+                              .build();
 
-    if (!instanceResult)
-    {
-        throw std::runtime_error(
-            "Failed to create Vulkan instance: " +
-            instanceResult.error().message()
-        );
+    if (!instanceResult) {
+        throw std::runtime_error("Failed to create Vulkan instance: " + instanceResult.error().message());
     }
 
     m_vkbInstance = instanceResult.value();
@@ -111,172 +90,102 @@ void VulkanContext::createInstance()
     m_debugMessenger = m_vkbInstance.debug_messenger;
 }
 
-void VulkanContext::createSurface(GLFWwindow* window)
-{
-    VkResult surfaceResult = glfwCreateWindowSurface(
-        m_instance,
-        window,
-        nullptr,
-        &m_surface
-    );
+void VulkanContext::createSurface(GLFWwindow* window) {
+    VkResult surfaceResult = glfwCreateWindowSurface(m_instance, window, nullptr, &m_surface);
 
-    if (surfaceResult != VK_SUCCESS)
-    {
+    if (surfaceResult != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Vulkan surface.");
     }
 }
 
-void VulkanContext::selectPhysicalDevice()
-{
-    // Define device features
-    VkPhysicalDeviceVulkan12Features features12{};
-    features12.sType =
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+void VulkanContext::configureDeviceFeatures() {
+    m_features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
-    features12.bufferDeviceAddress = VK_TRUE;
+    m_features12.bufferDeviceAddress = VK_TRUE;
 
-    VkPhysicalDeviceVulkan13Features features13{};
-    features13.sType =
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    m_features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 
-    features13.dynamicRendering = VK_TRUE;
-    features13.synchronization2 = VK_TRUE;
+    m_features13.dynamicRendering = VK_TRUE;
+    m_features13.synchronization2 = VK_TRUE;
 
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeatures{};
-    accelFeatures.sType =
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    m_accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 
-    accelFeatures.accelerationStructure = VK_TRUE;
+    m_accelerationStructureFeatures.accelerationStructure = VK_TRUE;
 
-    VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtFeatures{};
-    rtFeatures.sType =
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+    m_rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
 
-    rtFeatures.rayTracingPipeline = VK_TRUE;
+    m_rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+}
 
-    vkb::PhysicalDeviceSelector selector{ m_vkbInstance };
+void VulkanContext::selectPhysicalDevice() {
+    vkb::PhysicalDeviceSelector selector{m_vkbInstance};
 
-    auto physicalDeviceResult = selector
-        .set_surface(m_surface)
-        .set_minimum_version(1, 3)
+    auto physicalDeviceResult = selector.set_surface(m_surface)
+                                    .set_minimum_version(1, 3)
 
-        .add_required_extension(
-            VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
-        )
-        .add_required_extension(
-            VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
-        )
-        .add_required_extension(
-            VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
-        )
+                                    .add_required_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
+                                    .add_required_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
+                                    .add_required_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME)
 
-        .set_required_features_12(features12)
-        .set_required_features_13(features13)
+                                    .set_required_features_12(m_features12)
+                                    .set_required_features_13(m_features13)
 
-        .add_required_extension_features(accelFeatures)
-        .add_required_extension_features(rtFeatures)
+                                    .add_required_extension_features(m_accelerationStructureFeatures)
+                                    .add_required_extension_features(m_rayTracingPipelineFeatures)
 
-        .select();
+                                    .select();
 
-    if (!physicalDeviceResult)
-    {
-        throw std::runtime_error(
-            "Failed to select physical device: " +
-            physicalDeviceResult.error().message()
-        );
+    if (!physicalDeviceResult) {
+        throw std::runtime_error("Failed to select physical device: " + physicalDeviceResult.error().message());
     }
 
     m_vkbPhysicalDevice = physicalDeviceResult.value();
     m_physicalDevice = m_vkbPhysicalDevice.physical_device;
 }
 
-void VulkanContext::createLogicalDevice()
-{
-    vkb::DeviceBuilder deviceBuilder{ m_vkbPhysicalDevice };
+void VulkanContext::createLogicalDevice() {
+    vkb::DeviceBuilder deviceBuilder{m_vkbPhysicalDevice};
 
     auto deviceResult = deviceBuilder.build();
 
-    if (!deviceResult)
-    {
-        throw std::runtime_error(
-            "Failed to create logical device: " +
-            deviceResult.error().message()
-        );
+    if (!deviceResult) {
+        throw std::runtime_error("Failed to create logical device: " + deviceResult.error().message());
     }
 
     m_vkbDevice = deviceResult.value();
     m_device = m_vkbDevice.device;
 }
 
-void VulkanContext::getQueues()
-{
-    auto graphicsQueueResult =
-        m_vkbDevice.get_queue(vkb::QueueType::graphics);
+void VulkanContext::getQueues() {
+    auto graphicsQueueResult = m_vkbDevice.get_queue(vkb::QueueType::graphics);
 
-    if (!graphicsQueueResult)
-    {
-        throw std::runtime_error(
-            "Failed to get graphics queue: " +
-            graphicsQueueResult.error().message()
-        );
+    if (!graphicsQueueResult) {
+        throw std::runtime_error("Failed to get graphics queue: " + graphicsQueueResult.error().message());
     }
 
     m_graphicsQueue = graphicsQueueResult.value();
 
+    auto graphicsQueueIndexResult = m_vkbDevice.get_queue_index(vkb::QueueType::graphics);
 
-    auto graphicsQueueIndexResult =
-        m_vkbDevice.get_queue_index(vkb::QueueType::graphics);
-
-    if (!graphicsQueueIndexResult)
-    {
-        throw std::runtime_error(
-            "Failed to get graphics queue family index: " +
-            graphicsQueueIndexResult.error().message()
-        );
+    if (!graphicsQueueIndexResult) {
+        throw std::runtime_error("Failed to get graphics queue family index: " + graphicsQueueIndexResult.error().message());
     }
 
-    m_graphicsQueueFamilyIndex =
-        graphicsQueueIndexResult.value();
+    m_graphicsQueueFamilyIndex = graphicsQueueIndexResult.value();
 
+    auto presentQueueResult = m_vkbDevice.get_queue(vkb::QueueType::present);
 
-    auto presentQueueResult =
-        m_vkbDevice.get_queue(vkb::QueueType::present);
-
-    if (!presentQueueResult)
-    {
-        throw std::runtime_error(
-            "Failed to get present queue: " +
-            presentQueueResult.error().message()
-        );
+    if (!presentQueueResult) {
+        throw std::runtime_error("Failed to get present queue: " + presentQueueResult.error().message());
     }
 
     m_presentQueue = presentQueueResult.value();
-    
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(
-        m_physicalDevice,
-        &properties
-    );
 }
 
-void VulkanContext::createVMA()
-{
-    m_allocator.initialize(
-        m_instance,
-        m_physicalDevice,
-        m_device
-    );
+void VulkanContext::createVMA() {
+    m_allocator.initialize(m_instance, m_physicalDevice, m_device);
 }
 
-void VulkanContext::setupDeviceFeatures()
-{
-   // TODO move feature setup to setupDeviceFeatures() and remove from selectPhysicalDevice()
-}
-
-void VulkanContext::queryDeviceProperties()
-{
-    vkGetPhysicalDeviceProperties(
-        m_physicalDevice,
-        &m_deviceProperties
-    );
+void VulkanContext::queryDeviceProperties() {
+    vkGetPhysicalDeviceProperties(m_physicalDevice, &m_deviceProperties);
 }
