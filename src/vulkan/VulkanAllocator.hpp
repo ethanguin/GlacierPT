@@ -29,6 +29,8 @@ public:
         return m_allocator;
     }
 
+    void uploadBuffer(AllocatedBuffer& buffer, const void* data, VkDeviceSize size);
+
 private:
     VmaAllocator m_allocator = VK_NULL_HANDLE;
 };

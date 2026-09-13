@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Vulkan REQUIRED)
+find_program(GLSLC glslc REQUIRED)
 
 include(FetchContent)
 
@@ -61,3 +62,59 @@ target_link_libraries(GlacierPT
         vk-bootstrap::vk-bootstrap
         GPUOpen::VulkanMemoryAllocator
 )
+
+# SHADERS
+
+set(SHADER_SOURCE_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders
+)
+
+set(SHADER_BINARY_DIR
+    ${CMAKE_CURRENT_BINARY_DIR}/shaders
+)
+
+set(TRIANGLE_VERT
+    ${SHADER_SOURCE_DIR}/triangle.vert
+)
+
+set(TRIANGLE_FRAG
+    ${SHADER_SOURCE_DIR}/triangle.frag
+)
+
+set(TRIANGLE_VERT_SPV
+    ${SHADER_BINARY_DIR}/triangle.vert.spv
+)
+
+set(TRIANGLE_FRAG_SPV
+    ${SHADER_BINARY_DIR}/triangle.frag.spv
+)
+
+add_custom_command(
+    OUTPUT ${TRIANGLE_VERT_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            ${SHADER_BINARY_DIR}
+    COMMAND ${GLSLC}
+            ${TRIANGLE_VERT}
+            -o ${TRIANGLE_VERT_SPV}
+    DEPENDS ${TRIANGLE_VERT}
+    COMMENT "Compiling triangle vertex shader"
+)
+
+add_custom_command(
+    OUTPUT ${TRIANGLE_FRAG_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            ${SHADER_BINARY_DIR}
+    COMMAND ${GLSLC}
+            ${TRIANGLE_FRAG}
+            -o ${TRIANGLE_FRAG_SPV}
+    DEPENDS ${TRIANGLE_FRAG}
+    COMMENT "Compiling triangle fragment shader"
+)
+
+add_custom_target(GlacierPTShaders
+    DEPENDS
+        ${TRIANGLE_VERT_SPV}
+        ${TRIANGLE_FRAG_SPV}
+)
+
+add_dependencies(GlacierPT GlacierPTShaders)

@@ -79,4 +79,5 @@ private:
     void createVMA();
 
     void queryDeviceProperties();
+    void destroyDebugMessenger();
 };

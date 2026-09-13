@@ -1,6 +1,7 @@
 #include "VulkanAllocator.hpp"
 
 #include <stdexcept>
+#include <cstring>
 
 void VulkanAllocator::initialize(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device) {
     if (m_allocator != VK_NULL_HANDLE) {
@@ -82,4 +83,18 @@ void VulkanAllocator::destroyImage(AllocatedImage& image) {
         image.image = VK_NULL_HANDLE;
         image.allocation = VK_NULL_HANDLE;
     }
+}
+
+void VulkanAllocator::uploadBuffer(AllocatedBuffer& buffer, const void* data, VkDeviceSize size) {
+    void* mappedData = nullptr;
+
+    VkResult result = vmaMapMemory(m_allocator, buffer.allocation, &mappedData);
+
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to map VMA allocation");
+    }
+
+    std::memcpy(mappedData, data, static_cast<size_t>(size));
+
+    vmaUnmapMemory(m_allocator, buffer.allocation);
 }

@@ -33,50 +33,42 @@ void VulkanContext::initialize(GLFWwindow* window) {
 }
 
 void VulkanContext::shutdown() {
+    if (m_instance == VK_NULL_HANDLE) {
+        return;
+    }
+
     std::cout << "\nVULKAN SHUTDOWN\n";
 
-    if (m_device != VK_NULL_HANDLE) {
-        std::cout << "Waiting for device\n";
-
-        VkResult result = vkDeviceWaitIdle(m_device);
-
-        if (result != VK_SUCCESS) {
-            std::cerr << "Warning: vkDeviceWaitIdle failed during shutdown.\n";
-        }
-    }
+    std::cout << "Waiting for device\n";
+    vkDeviceWaitIdle(m_device);
 
     std::cout << "Destroying VMA allocator\n";
     m_allocator.shutdown();
 
+    std::cout << "Destroying surface\n";
     if (m_surface != VK_NULL_HANDLE) {
-        std::cout << "Destroying surface\n";
-
-        vkb::destroy_surface(m_vkbInstance, m_surface);
+        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
         m_surface = VK_NULL_HANDLE;
     }
 
-    if (m_vkbDevice.device != VK_NULL_HANDLE) {
-        std::cout << "Destroying device\n";
-
-        vkb::destroy_device(m_vkbDevice);
-
-        m_vkbDevice = {};
+    std::cout << "Destroying device\n";
+    if (m_device != VK_NULL_HANDLE) {
+        vkDestroyDevice(m_device, nullptr);
         m_device = VK_NULL_HANDLE;
     }
 
-    if (m_vkbInstance.instance != VK_NULL_HANDLE) {
-        std::cout << "Destroying instance\n";
+    std::cout << "Destroying debug messenger\n";
+    destroyDebugMessenger();
 
-        vkb::destroy_instance(m_vkbInstance);
-
-        m_vkbInstance = {};
+    std::cout << "Destroying instance\n";
+    if (m_instance != VK_NULL_HANDLE) {
+        vkDestroyInstance(m_instance, nullptr);
         m_instance = VK_NULL_HANDLE;
     }
 
     m_physicalDevice = VK_NULL_HANDLE;
     m_graphicsQueue = VK_NULL_HANDLE;
     m_presentQueue = VK_NULL_HANDLE;
-    m_graphicsQueueFamilyIndex = 0;
 
     std::cout << "Vulkan shutdown complete\n";
 }
@@ -203,4 +195,19 @@ void VulkanContext::createVMA() {
 
 void VulkanContext::queryDeviceProperties() {
     vkGetPhysicalDeviceProperties(m_physicalDevice, &m_deviceProperties);
+}
+
+void VulkanContext::destroyDebugMessenger() {
+    if (m_debugMessenger == VK_NULL_HANDLE) {
+        return;
+    }
+
+    auto destroyDebugUtilsMessenger =
+        reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT"));
+
+    if (destroyDebugUtilsMessenger != nullptr) {
+        destroyDebugUtilsMessenger(m_instance, m_debugMessenger, nullptr);
+    }
+
+    m_debugMessenger = VK_NULL_HANDLE;
 }

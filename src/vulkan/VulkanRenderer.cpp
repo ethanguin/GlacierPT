@@ -1,4 +1,5 @@
 #include "VulkanRenderer.hpp"
+#include "Vertex.hpp"
 
 void VulkanRenderer::initialize(GLFWwindow* window) {
     m_window = window;
@@ -12,19 +13,30 @@ void VulkanRenderer::initialize(GLFWwindow* window) {
 
     m_swapchain.initialize(m_context.physicalDevice(), m_context.device(), m_context.surface(), width, height);
 
+    m_pipeline.initialize(m_context.device(), m_swapchain.imageFormat());
+
+    createTriangleVertexBuffer();
+
     m_commands.initialize(m_context.device(), m_context.graphicsQueueFamilyIndex());
 
     createFrames();
 }
 
 void VulkanRenderer::shutdown() {
-    VkDevice device = m_context.device();
-
-    if (device != VK_NULL_HANDLE) {
-        vkDeviceWaitIdle(device);
+    if (m_context.device() == VK_NULL_HANDLE) {
+        return;
     }
 
+    VkDevice device = m_context.device();
+
+    vkDeviceWaitIdle(device);
+
     destroyFrames();
+
+    m_context.allocator().destroyBuffer(m_triangleVertexBuffer);
+
+    m_pipeline.shutdown(device);
+
     m_commands.shutdown();
     m_swapchain.shutdown();
     m_context.shutdown();
@@ -208,7 +220,9 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 
-    // Actual drawing will eventually go here.
+    // RENDER PIPELINE
+
+    drawTriangle(cmd);
 
     vkCmdEndRendering(cmd);
 
@@ -296,4 +310,38 @@ void VulkanCommands::freeCommandBuffer(VkCommandBuffer commandBuffer) {
     if (commandBuffer != VK_NULL_HANDLE) {
         vkFreeCommandBuffers(m_device, m_commandPool, 1, &commandBuffer);
     }
+}
+
+void VulkanRenderer::createTriangleVertexBuffer() {
+    const VkDeviceSize bufferSize = sizeof(TRIANGLE_VERTICES);
+
+    m_triangleVertexBuffer = m_context.allocator().createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    m_context.allocator().uploadBuffer(m_triangleVertexBuffer, TRIANGLE_VERTICES, bufferSize);
+}
+
+void VulkanRenderer::drawTriangle(VkCommandBuffer cmd) {
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(m_swapchain.extent().width);
+    viewport.height = static_cast<float>(m_swapchain.extent().height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = m_swapchain.extent();
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.pipeline());
+
+    VkDeviceSize offset = 0;
+
+    vkCmdBindVertexBuffers(cmd, 0, 1, &m_triangleVertexBuffer.buffer, &offset);
+
+    vkCmdDraw(cmd, 3, 1, 0, 0);
 }
