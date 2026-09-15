@@ -3,7 +3,10 @@ A C++ Raytracer using Vulkan. Using opensource libraries and frameworks with cus
 
 Uses GLFW for windowing, vk_bootstrap for boilerplate, VMA for memory management.
 
-## Vulkan Foundation
+## TODO
+#### Sections of the ray tracer and their respective milestones
+
+### Vulkan Foundation
 - [x] instance
 - [x] surface
 - [x] physical device
@@ -15,23 +18,23 @@ Uses GLFW for windowing, vk_bootstrap for boilerplate, VMA for memory management
 - [ ] camera input/movement
 - [ ] gamepad input support
 
-## Resources/Shaders
+### Resources/Shaders
 - [x] GLSL SPIR-V compilation
 - [x] minimal graphics pipeline
 - [ ] Scene Loading
 
-## Ray Tracing
+### Ray Tracing
 - [ ] HLSL SPIR-V compilation (DXC)
 - [ ] BLAS/TLAS Builder
 - [ ] RT pipeline + shader binding table
 - [ ] lightweight render graph
 
-## Tooling
+### Tooling
 - [ ] Dear ImGui + parameter registry
 - [ ] JSON config serialization
 - [ ] shader hot reload (file water + ShaderManager)
 - [ ] Profiling (Tracy + Vulkan timestamp queries)
 
-## Additional extentions (if I'm able)
+### Additional extentions (if I'm able)
 - [ ] NRD
 - [ ] RTXDI
