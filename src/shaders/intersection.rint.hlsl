@@ -11,12 +11,14 @@ struct HitAttributes {
 
     float3 rayOrigin = ObjectRayOrigin();
     float3 rayDirection = ObjectRayDirection();
+    float3 spherePosition = sphere.positionRadius.xyz;
+    float sphereRadius = sphere.positionRadius.w;
 
-    float3 oc = rayOrigin - sphere.position;
+    float3 oc = rayOrigin - spherePosition;
 
     float a = dot(rayDirection, rayDirection);
     float b = 2.0 * dot(oc, rayDirection);
-    float c = dot(oc, oc) - sphere.radius * sphere.radius;
+    float c = dot(oc, oc) - sphereRadius * sphereRadius;
 
     float discriminant = b * b - 4.0 * a * c;
 
@@ -39,7 +41,7 @@ struct HitAttributes {
         float3 hitPosition = rayOrigin + rayDirection * hitT;
 
         HitAttributes attributes;
-        attributes.normal = normalize(hitPosition - sphere.position);
+        attributes.normal = normalize(hitPosition - spherePosition);
 
         ReportHit(hitT, 0U, attributes);
     }

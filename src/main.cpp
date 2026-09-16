@@ -7,6 +7,7 @@
 #include "vulkan/VulkanRenderer.hpp"
 #include "scene/Camera.hpp"
 #include "scene/Scene.hpp"
+#include "utils/Color.hpp"
 
 int main() {
     std::cout << "Starting GlacierPT...\n";
@@ -36,9 +37,9 @@ int main() {
 
     Scene scene;
 
-    scene.addSphere({-6.0f, 0.0f, -10.0f}, 5.0f, {0.91f, 0.21f, 0.21f});
-    scene.addSphere({0.0f, 0.0f, -10.0f}, 5.0f, {0.21, 0.91f, 0.21f});
-    scene.addSphere({6.0f, 0.0f, -10.0f}, 5.0f, {0.21f, 0.21f, 0.91f});
+    scene.addSphere({-10.0f, 0.0f, -10.0f}, 3.5f, srgbToLinear({0.631f, 0.557f, 0.0f}));
+    scene.addSphere({0.0f, 0.0f, -10.0f}, 3.5f, srgbToLinear({0.541f, 0.071f, 0.51f}));
+    scene.addSphere({10.0f, 0.0f, -10.0f}, 3.5f, srgbToLinear({1.0f, 0.463f, 0.561f}));
 
     // Create Vulkan Renderer
 

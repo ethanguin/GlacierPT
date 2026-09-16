@@ -13,16 +13,17 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
 
     std::vector<GPUSphere> gpuSpheres;
 
-    gpuSpheres.reserve(scene.spheres().size());
-
     for (const SceneSphere& sphere : scene.spheres()) {
-        gpuSpheres.push_back({sphere.position, sphere.radius, sphere.color, 0.0f});
+        gpuSpheres.push_back({{sphere.position, sphere.radius}, {sphere.color, 1.0f}});
     }
 
-    if (!gpuSpheres.empty()) {
-        m_sphereBuffer = m_context->allocator().createBuffer(sizeof(GPUSphere) * gpuSpheres.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                                             VMA_MEMORY_USAGE_CPU_TO_GPU);
+    // Always create the buffer, even if empty, so the descriptor is never null.
+    const size_t sphereCount = std::max<size_t>(gpuSpheres.size(), 1);
 
+    m_sphereBuffer =
+        m_context->allocator().createBuffer(sizeof(GPUSphere) * sphereCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    if (!gpuSpheres.empty()) {
         m_context->allocator().uploadBuffer(m_sphereBuffer, gpuSpheres.data(), sizeof(GPUSphere) * gpuSpheres.size());
     }
 

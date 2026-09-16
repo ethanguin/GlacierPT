@@ -7,12 +7,10 @@
 
 // explicit GPU sphere structure so it doesn't have to be connected to attributes for the scene sphere and add its own padding to map to HLSL
 struct GPUSphere {
-    glm::vec3 position;
-    float radius;
-    glm::vec3 color;
-
-    float padding;
+    glm::vec4 positionRadius;
+    glm::vec4 color;
 };
+static_assert(sizeof(GPUSphere) == 32);
 
 class VulkanRTResources {
 public:

@@ -229,6 +229,7 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
                         -T ${SHADER_PROFILE}
                         -E ${SHADER_ENTRY_POINT}
                         -fspv-target-env=vulkan1.3
+                        -fvk-use-dx-layout
                         -Fo "${SHADER_OUTPUT}"
                         "${SHADER_SOURCE}"
 

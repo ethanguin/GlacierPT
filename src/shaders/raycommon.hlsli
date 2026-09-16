@@ -6,11 +6,8 @@ struct RayPayload {
 };
 
 struct GPUSphere {
-    float3 position;
-    float radius;
-    float3 color;
-
-    float padding;
+    float4 positionRadius;
+    float4 color;
 };
 
 [[vk::binding(0, 0)]]
