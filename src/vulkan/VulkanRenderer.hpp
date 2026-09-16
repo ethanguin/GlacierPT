@@ -5,6 +5,7 @@
 #include "VulkanCommands.hpp"
 #include "VulkanFrame.hpp"
 #include "VulkanPipeline.hpp"
+#include "VulkanAccelerationStructure.hpp"
 
 #include <array>
 #include <vector>
@@ -40,6 +41,7 @@ private:
     VulkanSwapchain m_swapchain;
     VulkanCommands m_commands;
     VulkanPipeline m_pipeline;
+    VulkanAccelerationStructure m_accelerationStructure;
 
     std::vector<VkSemaphore> m_renderFinished;
 

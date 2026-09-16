@@ -16,6 +16,8 @@ void VulkanAllocator::initialize(VkInstance instance, VkPhysicalDevice physicalD
 
     allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
 
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+
     VkResult result = vmaCreateAllocator(&allocatorInfo, &m_allocator);
 
     if (result != VK_SUCCESS) {

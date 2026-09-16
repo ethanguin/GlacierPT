@@ -19,6 +19,12 @@ void VulkanRenderer::initialize(GLFWwindow* window) {
 
     m_commands.initialize(m_context.device(), m_context.graphicsQueueFamilyIndex());
 
+    m_accelerationStructure.initialize(m_context, m_commands);
+
+    m_accelerationStructure.buildBLAS();
+
+    m_accelerationStructure.buildTLAS();
+
     createFrames();
 }
 
@@ -32,6 +38,8 @@ void VulkanRenderer::shutdown() {
     vkDeviceWaitIdle(device);
 
     destroyFrames();
+
+    m_accelerationStructure.shutdown();
 
     m_context.allocator().destroyBuffer(m_triangleVertexBuffer);
 
