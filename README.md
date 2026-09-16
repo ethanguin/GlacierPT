@@ -21,12 +21,14 @@ Uses GLFW for windowing, vk_bootstrap for boilerplate, VMA for memory management
 ### Resources/Shaders
 - [x] GLSL SPIR-V compilation
 - [x] minimal graphics pipeline
+- [x] Minimal scene loading (spheres)
+- [ ] Minimal scene lighting
 - [ ] Scene Loading
 
 ### Ray Tracing
-- [ ] HLSL SPIR-V compilation (DXC)
-- [ ] BLAS/TLAS Builder
-- [ ] RT pipeline + shader binding table
+- [x] HLSL SPIR-V compilation (DXC)
+- [x] BLAS/TLAS Builder
+- [x] RT pipeline + shader binding table
 - [ ] lightweight render graph
 
 ### Tooling
