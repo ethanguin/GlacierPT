@@ -6,6 +6,8 @@
 #include "VulkanFrame.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanAccelerationStructure.hpp"
+#include "VulkanRTResources.hpp"
+#include "VulkanRTPipeline.hpp"
 
 #include <array>
 #include <vector>
@@ -31,6 +33,9 @@ private:
 
     void submitFrame(VulkanFrame& frame, uint32_t imageIndex);
 
+    void createRayTracingImage();
+    void destroyRayTracingImage();
+
     void createTriangleVertexBuffer();
 
     void drawTriangle(VkCommandBuffer cmd);
@@ -42,6 +47,8 @@ private:
     VulkanCommands m_commands;
     VulkanPipeline m_pipeline;
     VulkanAccelerationStructure m_accelerationStructure;
+    VulkanRTResources m_rayTracingResources;
+    VulkanRTPipeline m_rayTracingPipeline;
 
     std::vector<VkSemaphore> m_renderFinished;
 
@@ -50,4 +57,7 @@ private:
     uint32_t m_currentFrame = 0;
 
     AllocatedBuffer m_triangleVertexBuffer;
+
+    AllocatedImage m_rayTracingImage;
+    VkImageView m_rayTracingImageView = VK_NULL_HANDLE;
 };

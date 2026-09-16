@@ -25,6 +25,12 @@ void VulkanRenderer::initialize(GLFWwindow* window) {
 
     m_accelerationStructure.buildTLAS();
 
+    createRayTracingImage();
+
+    m_rayTracingResources.initialize(m_context, m_accelerationStructure, m_rayTracingImageView);
+
+    m_rayTracingPipeline.initialize(m_context, m_rayTracingResources);
+
     createFrames();
 }
 
@@ -39,7 +45,13 @@ void VulkanRenderer::shutdown() {
 
     destroyFrames();
 
+    m_rayTracingPipeline.shutdown();
+
+    m_rayTracingResources.shutdown();
+
     m_accelerationStructure.shutdown();
+
+    destroyRayTracingImage();
 
     m_context.allocator().destroyBuffer(m_triangleVertexBuffer);
 
@@ -296,6 +308,71 @@ void VulkanRenderer::submitFrame(VulkanFrame& frame, uint32_t imageIndex) {
     if (vkQueueSubmit(m_context.graphicsQueue(), 1, &submitInfo, frame.renderFence) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer.");
     }
+}
+
+void VulkanRenderer::createRayTracingImage() {
+    VkExtent2D extent = m_swapchain.extent();
+
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+
+    imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+
+    imageInfo.extent.width = extent.width;
+
+    imageInfo.extent.height = extent.height;
+
+    imageInfo.extent.depth = 1;
+
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+
+    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    m_rayTracingImage = m_context.allocator().createImage(imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+    viewInfo.image = m_rayTracingImage.image;
+
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+
+    viewInfo.format = imageInfo.format;
+
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(m_context.device(), &viewInfo, nullptr, &m_rayTracingImageView) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create ray tracing image view.");
+    }
+}
+
+void VulkanRenderer::destroyRayTracingImage() {
+    VkDevice device = m_context.device();
+
+    if (m_rayTracingImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, m_rayTracingImageView, nullptr);
+
+        m_rayTracingImageView = VK_NULL_HANDLE;
+    }
+
+    m_context.allocator().destroyImage(m_rayTracingImage);
 }
 
 VkCommandBuffer VulkanCommands::allocateCommandBuffer() {

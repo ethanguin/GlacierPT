@@ -156,6 +156,7 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
                     -spirv
                     -T lib_6_3
                     -fspv-target-env=vulkan1.3
+                    -fspv-extension=SPV_KHR_ray_tracing
                     -Fo "${SHADER_OUTPUT}"
                     "${SHADER_SOURCE}"
 
