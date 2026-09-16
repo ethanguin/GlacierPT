@@ -12,6 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Vulkan REQUIRED)
 find_program(GLSLC glslc REQUIRED)
+find_program(DXC dxc REQUIRED)
 
 include(FetchContent)
 
@@ -63,7 +64,7 @@ target_link_libraries(GlacierPT
         GPUOpen::VulkanMemoryAllocator
 )
 
-# SHADERS
+# SHADER COMPILATION
 
 set(SHADER_SOURCE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders
@@ -73,48 +74,107 @@ set(SHADER_BINARY_DIR
     ${CMAKE_CURRENT_BINARY_DIR}/shaders
 )
 
-set(TRIANGLE_VERT
-    ${SHADER_SOURCE_DIR}/triangle.vert
+find_program(GLSLC glslc REQUIRED)
+find_program(DXC dxc REQUIRED)
+
+# Find shader source files.
+file(GLOB_RECURSE SHADER_SOURCES CONFIGURE_DEPENDS
+    "${SHADER_SOURCE_DIR}/*.vert"
+    "${SHADER_SOURCE_DIR}/*.frag"
+    "${SHADER_SOURCE_DIR}/*.comp"
+    "${SHADER_SOURCE_DIR}/*.hlsl"
 )
 
-set(TRIANGLE_FRAG
-    ${SHADER_SOURCE_DIR}/triangle.frag
-)
+set(SHADER_OUTPUTS)
 
-set(TRIANGLE_VERT_SPV
-    ${SHADER_BINARY_DIR}/triangle.vert.spv
-)
+foreach(SHADER_SOURCE ${SHADER_SOURCES})
 
-set(TRIANGLE_FRAG_SPV
-    ${SHADER_BINARY_DIR}/triangle.frag.spv
-)
+    get_filename_component(SHADER_FILENAME
+        "${SHADER_SOURCE}"
+        NAME
+    )
+    
+    get_filename_component(SHADER_EXTENSION
+        "${SHADER_SOURCE}"
+        EXT
+    )
 
-add_custom_command(
-    OUTPUT ${TRIANGLE_VERT_SPV}
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            ${SHADER_BINARY_DIR}
-    COMMAND ${GLSLC}
-            ${TRIANGLE_VERT}
-            -o ${TRIANGLE_VERT_SPV}
-    DEPENDS ${TRIANGLE_VERT}
-    COMMENT "Compiling triangle vertex shader"
-)
+    if(SHADER_EXTENSION STREQUAL ".hlsl")
 
-add_custom_command(
-    OUTPUT ${TRIANGLE_FRAG_SPV}
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            ${SHADER_BINARY_DIR}
-    COMMAND ${GLSLC}
-            ${TRIANGLE_FRAG}
-            -o ${TRIANGLE_FRAG_SPV}
-    DEPENDS ${TRIANGLE_FRAG}
-    COMMENT "Compiling triangle fragment shader"
-)
+        string(REGEX REPLACE
+            "\\.hlsl$"
+            ".spv"
+            SHADER_OUTPUT_NAME
+            "${SHADER_FILENAME}"
+        )
+
+    else()
+
+        set(SHADER_OUTPUT_NAME
+            "${SHADER_FILENAME}.spv"
+        )
+
+    endif()
+
+    set(SHADER_OUTPUT
+        "${SHADER_BINARY_DIR}/${SHADER_OUTPUT_NAME}"
+    )
+
+    # GLSL
+
+    if(SHADER_EXTENSION STREQUAL ".vert"
+       OR SHADER_EXTENSION STREQUAL ".frag"
+       OR SHADER_EXTENSION STREQUAL ".comp")
+
+        add_custom_command(
+            OUTPUT "${SHADER_OUTPUT}"
+
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                    "${SHADER_BINARY_DIR}"
+
+            COMMAND ${GLSLC}
+                    "${SHADER_SOURCE}"
+                    -o "${SHADER_OUTPUT}"
+
+            DEPENDS "${SHADER_SOURCE}"
+
+            COMMENT "Compiling GLSL shader ${SHADER_FILENAME}"
+            VERBATIM
+        )
+
+    # HLSL
+
+    elseif(SHADER_EXTENSION STREQUAL ".hlsl")
+
+        add_custom_command(
+            OUTPUT "${SHADER_OUTPUT}"
+
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                    "${SHADER_BINARY_DIR}"
+
+            COMMAND ${DXC}
+                    -spirv
+                    -T lib_6_3
+                    -fspv-target-env=vulkan1.3
+                    -Fo "${SHADER_OUTPUT}"
+                    "${SHADER_SOURCE}"
+
+            DEPENDS "${SHADER_SOURCE}"
+
+            COMMENT "Compiling HLSL shader ${SHADER_FILENAME}"
+            VERBATIM
+        )
+
+    endif()
+
+    list(APPEND SHADER_OUTPUTS
+        "${SHADER_OUTPUT}"
+    )
+
+endforeach()
 
 add_custom_target(GlacierPTShaders
-    DEPENDS
-        ${TRIANGLE_VERT_SPV}
-        ${TRIANGLE_FRAG_SPV}
+    DEPENDS ${SHADER_OUTPUTS}
 )
 
 add_dependencies(GlacierPT GlacierPTShaders)
