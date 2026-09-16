@@ -16,13 +16,19 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
         throw std::runtime_error("Failed to load vkCreateRayTracingPipelinesKHR.");
     }
 
-    m_raygenShader = loadShaderModule("shaders/raygen.spv");
+    m_vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
 
-    m_missShader = loadShaderModule("shaders/miss.spv");
+    if (m_vkCmdTraceRaysKHR == nullptr) {
+        throw std::runtime_error("Failed to load vkCmdTraceRaysKHR.");
+    }
 
-    m_intersectionShader = loadShaderModule("shaders/intersection.spv");
+    m_raygenShader = loadShaderModule("shaders/raygen.rgen.spv");
 
-    m_closestHitShader = loadShaderModule("shaders/closesthit.spv");
+    m_missShader = loadShaderModule("shaders/miss.rmiss.spv");
+
+    m_intersectionShader = loadShaderModule("shaders/intersection.rint.spv");
+
+    m_closestHitShader = loadShaderModule("shaders/closesthit.rchit.spv");
 
     VkDescriptorSetLayout descriptorSetLayout = resources.descriptorSetLayout();
 
@@ -240,7 +246,6 @@ VkShaderModule VulkanRTPipeline::loadShaderModule(const char* path) {
 
 void VulkanRTPipeline::createShaderBindingTable() {
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingProperties{};
-
     rayTracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
 
     VkPhysicalDeviceProperties2 properties2{};
@@ -258,20 +263,28 @@ void VulkanRTPipeline::createShaderBindingTable() {
 
     auto alignUp = [](VkDeviceSize value, VkDeviceSize alignment) { return (value + alignment - 1) & ~(alignment - 1); };
 
+    // Each shader record's stride
     const VkDeviceSize raygenStride = alignUp(handleSize, handleAlignment);
 
     const VkDeviceSize missStride = alignUp(handleSize, handleAlignment);
 
     const VkDeviceSize hitStride = alignUp(handleSize, handleAlignment);
 
-    const VkDeviceSize raygenSize = alignUp(raygenStride, baseAlignment);
+    // One record in each region, so size == stride
+    const VkDeviceSize raygenSize = raygenStride;
+    const VkDeviceSize missSize = missStride;
+    const VkDeviceSize hitSize = hitStride;
 
-    const VkDeviceSize missSize = alignUp(missStride, baseAlignment);
+    // Each region must start on shaderGroupBaseAlignment
+    const VkDeviceSize raygenOffset = 0;
 
-    const VkDeviceSize hitSize = alignUp(hitStride, baseAlignment);
+    const VkDeviceSize missOffset = alignUp(raygenOffset + raygenSize, baseAlignment);
 
-    const VkDeviceSize totalSize = raygenSize + missSize + hitSize;
+    const VkDeviceSize hitOffset = alignUp(missOffset + missSize, baseAlignment);
 
+    const VkDeviceSize totalSize = hitOffset + hitSize;
+
+    // Get shader group handles
     std::vector<uint8_t> handles(handleSize * 3);
 
     VkResult result = m_vkGetRayTracingShaderGroupHandlesKHR(m_context->device(), m_pipeline, 0, 3, handles.size(), handles.data());
@@ -280,19 +293,28 @@ void VulkanRTPipeline::createShaderBindingTable() {
         throw std::runtime_error("Failed to get ray tracing shader group handles.");
     }
 
+    // Build the SBT data with required padding between regions
     std::vector<uint8_t> sbtData(totalSize);
 
-    std::memcpy(sbtData.data(), handles.data(), handleSize);
+    auto* raygenData = sbtData.data() + raygenOffset;
 
-    std::memcpy(sbtData.data() + raygenSize, handles.data() + handleSize, handleSize);
+    auto* missData = sbtData.data() + missOffset;
 
-    std::memcpy(sbtData.data() + raygenSize + missSize, handles.data() + handleSize * 2, handleSize);
+    auto* hitData = sbtData.data() + hitOffset;
 
+    std::memcpy(raygenData, handles.data(), handleSize);
+
+    std::memcpy(missData, handles.data() + handleSize, handleSize);
+
+    std::memcpy(hitData, handles.data() + handleSize * 2, handleSize);
+
+    // Create SBT buffer
     m_shaderBindingTable = m_context->allocator().createBuffer(
         totalSize, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     m_context->allocator().uploadBuffer(m_shaderBindingTable, sbtData.data(), totalSize);
 
+    // Get SBT buffer device address
     VkBufferDeviceAddressInfo addressInfo{};
     addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 
@@ -300,19 +322,22 @@ void VulkanRTPipeline::createShaderBindingTable() {
 
     VkDeviceAddress sbtAddress = vkGetBufferDeviceAddress(m_context->device(), &addressInfo);
 
-    m_raygenRegion.deviceAddress = sbtAddress;
+    // RayGen region
+    m_raygenRegion.deviceAddress = sbtAddress + raygenOffset;
 
     m_raygenRegion.stride = raygenStride;
 
     m_raygenRegion.size = raygenSize;
 
-    m_missRegion.deviceAddress = sbtAddress + raygenSize;
+    // Miss region
+    m_missRegion.deviceAddress = sbtAddress + missOffset;
 
     m_missRegion.stride = missStride;
 
     m_missRegion.size = missSize;
 
-    m_hitRegion.deviceAddress = sbtAddress + raygenSize + missSize;
+    // Hit region
+    m_hitRegion.deviceAddress = sbtAddress + hitOffset;
 
     m_hitRegion.stride = hitStride;
 

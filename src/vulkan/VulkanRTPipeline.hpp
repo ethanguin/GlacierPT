@@ -31,6 +31,10 @@ public:
         return m_hitRegion;
     }
 
+    PFN_vkCmdTraceRaysKHR traceRaysFunction() const {
+        return m_vkCmdTraceRaysKHR;
+    }
+
 private:
     VkShaderModule loadShaderModule(const char* path);
 
@@ -54,4 +58,5 @@ private:
 
     PFN_vkCreateRayTracingPipelinesKHR m_vkCreateRayTracingPipelinesKHR = nullptr;
     PFN_vkGetRayTracingShaderGroupHandlesKHR m_vkGetRayTracingShaderGroupHandlesKHR = nullptr;
+    PFN_vkCmdTraceRaysKHR m_vkCmdTraceRaysKHR = nullptr;
 };

@@ -29,7 +29,19 @@ void VulkanRenderer::initialize(GLFWwindow* window) {
 
     m_rayTracingResources.initialize(m_context, m_accelerationStructure, m_rayTracingImageView);
 
+    PFN_vkCmdTraceRaysKHR m_vkCmdTraceRaysKHR = nullptr;
+
+    m_vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(m_context.device(), "vkCmdTraceRaysKHR"));
+
+    if (m_vkCmdTraceRaysKHR == nullptr) {
+        throw std::runtime_error("Failed to load vkCmdTraceRaysKHR.");
+    }
+
     m_rayTracingPipeline.initialize(m_context, m_rayTracingResources);
+
+    m_presentationPipeline.initialize(m_context, m_swapchain.imageFormat());
+
+    m_presentationPipeline.updateDescriptorSet(m_rayTracingImageView);
 
     createFrames();
 }
@@ -46,6 +58,8 @@ void VulkanRenderer::shutdown() {
     destroyFrames();
 
     m_rayTracingPipeline.shutdown();
+
+    m_presentationPipeline.shutdown();
 
     m_rayTracingResources.shutdown();
 
@@ -175,6 +189,102 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
         throw std::runtime_error("Failed to begin command buffer.");
     }
 
+    // TRANSITION TO RT
+
+    VkImageMemoryBarrier2 rtImageBarrier{};
+    rtImageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+
+    if (m_rayTracingImageInitialized) {
+        rtImageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+
+        rtImageBarrier.srcAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+
+        rtImageBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    } else {
+        rtImageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+
+        rtImageBarrier.srcAccessMask = VK_ACCESS_2_NONE;
+
+        rtImageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+
+    rtImageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+
+    rtImageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+    rtImageBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    rtImageBarrier.image = m_rayTracingImage.image;
+
+    rtImageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    rtImageBarrier.subresourceRange.baseMipLevel = 0;
+    rtImageBarrier.subresourceRange.levelCount = 1;
+    rtImageBarrier.subresourceRange.baseArrayLayer = 0;
+    rtImageBarrier.subresourceRange.layerCount = 1;
+
+    VkDependencyInfo rtDependency{};
+    rtDependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+
+    rtDependency.imageMemoryBarrierCount = 1;
+    rtDependency.pImageMemoryBarriers = &rtImageBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &rtDependency);
+
+    m_rayTracingImageInitialized = true;
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rayTracingPipeline.pipeline());
+
+    VkDescriptorSet descriptorSet = m_rayTracingResources.descriptorSet();
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rayTracingPipeline.layout(), 0, 1, &descriptorSet, 0, nullptr);
+
+    VkStridedDeviceAddressRegionKHR raygenRegion = m_rayTracingPipeline.raygenRegion();
+
+    VkStridedDeviceAddressRegionKHR missRegion = m_rayTracingPipeline.missRegion();
+
+    VkStridedDeviceAddressRegionKHR hitRegion = m_rayTracingPipeline.hitRegion();
+
+    VkStridedDeviceAddressRegionKHR callableRegion{};
+
+    m_rayTracingPipeline.traceRaysFunction()(cmd, &raygenRegion, &missRegion, &hitRegion, &callableRegion, m_swapchain.extent().width,
+                                             m_swapchain.extent().height, 1);
+
+    // RT IMAGE BARRIER
+
+    VkImageMemoryBarrier2 rtReadBarrier{};
+    rtReadBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+
+    rtReadBarrier.srcStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+
+    rtReadBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+    rtReadBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+
+    rtReadBarrier.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+
+    rtReadBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    rtReadBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    rtReadBarrier.image = m_rayTracingImage.image;
+
+    rtReadBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    rtReadBarrier.subresourceRange.baseMipLevel = 0;
+    rtReadBarrier.subresourceRange.levelCount = 1;
+
+    rtReadBarrier.subresourceRange.baseArrayLayer = 0;
+    rtReadBarrier.subresourceRange.layerCount = 1;
+
+    VkDependencyInfo rtReadDependency{};
+    rtReadDependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+
+    rtReadDependency.imageMemoryBarrierCount = 1;
+    rtReadDependency.pImageMemoryBarriers = &rtReadBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &rtReadDependency);
+
     VkImage image = m_swapchain.images()[imageIndex];
 
     // UNDEFINED -> COLOR_ATTACHMENT_OPTIMAL
@@ -242,7 +352,33 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     // RENDER PIPELINE
 
-    drawTriangle(cmd);
+    // Set up RT extents
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+
+    viewport.width = static_cast<float>(m_swapchain.extent().width);
+
+    viewport.height = static_cast<float>(m_swapchain.extent().height);
+
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = m_swapchain.extent();
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_presentationPipeline.pipeline());
+
+    VkDescriptorSet presentationDescriptorSet = m_presentationPipeline.descriptorSet();
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_presentationPipeline.layout(), 0, 1, &presentationDescriptorSet, 0, nullptr);
+
+    vkCmdDraw(cmd, 3, 1, 0, 0);
 
     vkCmdEndRendering(cmd);
 
@@ -333,7 +469,7 @@ void VulkanRenderer::createRayTracingImage() {
 
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 
-    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 

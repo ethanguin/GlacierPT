@@ -74,9 +74,6 @@ set(SHADER_BINARY_DIR
     ${CMAKE_CURRENT_BINARY_DIR}/shaders
 )
 
-find_program(GLSLC glslc REQUIRED)
-find_program(DXC dxc REQUIRED)
-
 # Find shader source files.
 file(GLOB_RECURSE SHADER_SOURCES CONFIGURE_DEPENDS
     "${SHADER_SOURCE_DIR}/*.vert"
@@ -93,38 +90,14 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
         "${SHADER_SOURCE}"
         NAME
     )
-    
-    get_filename_component(SHADER_EXTENSION
-        "${SHADER_SOURCE}"
-        EXT
-    )
-
-    if(SHADER_EXTENSION STREQUAL ".hlsl")
-
-        string(REGEX REPLACE
-            "\\.hlsl$"
-            ".spv"
-            SHADER_OUTPUT_NAME
-            "${SHADER_FILENAME}"
-        )
-
-    else()
-
-        set(SHADER_OUTPUT_NAME
-            "${SHADER_FILENAME}.spv"
-        )
-
-    endif()
-
-    set(SHADER_OUTPUT
-        "${SHADER_BINARY_DIR}/${SHADER_OUTPUT_NAME}"
-    )
 
     # GLSL
 
-    if(SHADER_EXTENSION STREQUAL ".vert"
-       OR SHADER_EXTENSION STREQUAL ".frag"
-       OR SHADER_EXTENSION STREQUAL ".comp")
+    if(SHADER_FILENAME MATCHES "\\.(vert|frag|comp)$")
+
+        set(SHADER_OUTPUT
+            "${SHADER_BINARY_DIR}/${SHADER_FILENAME}.spv"
+        )
 
         add_custom_command(
             OUTPUT "${SHADER_OUTPUT}"
@@ -142,35 +115,128 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
             VERBATIM
         )
 
+        list(APPEND SHADER_OUTPUTS
+            "${SHADER_OUTPUT}"
+        )
+
     # HLSL
+    #
+    # The filename determines shader type for proper compilation w/ DXC
+    #   *.rgen.hlsl   -> ray generation
+    #   *.rmiss.hlsl  -> miss
+    #   *.rint.hlsl   -> intersection
+    #   *.rchit.hlsl  -> closest hit
+    #   *.rahit.hlsl  -> any hit
+    #   *.vert.hlsl   -> vertex
+    #   *.frag.hlsl   -> fragment
+    #   *.comp.hlsl   -> compute
 
-    elseif(SHADER_EXTENSION STREQUAL ".hlsl")
+    elseif(SHADER_FILENAME MATCHES "\\.(rgen|rmiss|rint|rchit|rahit|vert|frag|comp)\\.hlsl$")
 
-        add_custom_command(
-            OUTPUT "${SHADER_OUTPUT}"
+        if(SHADER_FILENAME MATCHES "\\.rgen\\.hlsl$")
+            set(SHADER_PROFILE "lib_6_3")
 
-            COMMAND ${CMAKE_COMMAND} -E make_directory
-                    "${SHADER_BINARY_DIR}"
+        elseif(SHADER_FILENAME MATCHES "\\.rmiss\\.hlsl$")
+            set(SHADER_PROFILE "lib_6_3")
 
-            COMMAND ${DXC}
-                    -spirv
-                    -T lib_6_3
-                    -fspv-target-env=vulkan1.3
-                    -fspv-extension=SPV_KHR_ray_tracing
-                    -Fo "${SHADER_OUTPUT}"
-                    "${SHADER_SOURCE}"
+        elseif(SHADER_FILENAME MATCHES "\\.rint\\.hlsl$")
+            set(SHADER_PROFILE "lib_6_3")
 
-            DEPENDS "${SHADER_SOURCE}"
+        elseif(SHADER_FILENAME MATCHES "\\.rchit\\.hlsl$")
+            set(SHADER_PROFILE "lib_6_3")
 
-            COMMENT "Compiling HLSL shader ${SHADER_FILENAME}"
-            VERBATIM
+        elseif(SHADER_FILENAME MATCHES "\\.rahit\\.hlsl$")
+            set(SHADER_PROFILE "lib_6_3")
+
+        elseif(SHADER_FILENAME MATCHES "\\.vert\\.hlsl$")
+            set(SHADER_PROFILE "vs_6_0")
+
+        elseif(SHADER_FILENAME MATCHES "\\.frag\\.hlsl$")
+            set(SHADER_PROFILE "ps_6_0")
+
+        elseif(SHADER_FILENAME MATCHES "\\.comp\\.hlsl$")
+            set(SHADER_PROFILE "cs_6_0")
+
+        endif()
+
+        string(REGEX REPLACE
+            "\\.hlsl$"
+            ".spv"
+            SHADER_OUTPUT_NAME
+            "${SHADER_FILENAME}"
+        )
+
+        set(SHADER_OUTPUT
+            "${SHADER_BINARY_DIR}/${SHADER_OUTPUT_NAME}"
+        )
+
+        # Graphics / compute shaders have normal entry points.
+        if(SHADER_PROFILE STREQUAL "vs_6_0")
+            set(SHADER_ENTRY_POINT "VSMain")
+
+        elseif(SHADER_PROFILE STREQUAL "ps_6_0")
+            set(SHADER_ENTRY_POINT "PSMain")
+
+        elseif(SHADER_PROFILE STREQUAL "cs_6_0")
+            set(SHADER_ENTRY_POINT "CSMain")
+
+        else()
+            # Ray-tracing shaders are compiled as libraries.
+            set(SHADER_ENTRY_POINT "")
+
+        endif()
+
+        if(SHADER_ENTRY_POINT STREQUAL "")
+
+            add_custom_command(
+                OUTPUT "${SHADER_OUTPUT}"
+
+                COMMAND ${CMAKE_COMMAND} -E make_directory
+                        "${SHADER_BINARY_DIR}"
+
+                COMMAND ${DXC}
+                        -spirv
+                        -T ${SHADER_PROFILE}
+                        -fspv-target-env=vulkan1.3
+                        -fspv-extension=SPV_KHR_ray_tracing
+                        -Fo "${SHADER_OUTPUT}"
+                        "${SHADER_SOURCE}"
+
+                DEPENDS "${SHADER_SOURCE}"
+
+                COMMENT "Compiling HLSL ray tracing shader ${SHADER_FILENAME}"
+                VERBATIM
+            )
+
+        else()
+
+            add_custom_command(
+                OUTPUT "${SHADER_OUTPUT}"
+
+                COMMAND ${CMAKE_COMMAND} -E make_directory
+                        "${SHADER_BINARY_DIR}"
+
+                COMMAND ${DXC}
+                        -spirv
+                        -T ${SHADER_PROFILE}
+                        -E ${SHADER_ENTRY_POINT}
+                        -fspv-target-env=vulkan1.3
+                        -Fo "${SHADER_OUTPUT}"
+                        "${SHADER_SOURCE}"
+
+                DEPENDS "${SHADER_SOURCE}"
+
+                COMMENT "Compiling HLSL shader ${SHADER_FILENAME}"
+                VERBATIM
+            )
+
+        endif()
+
+        list(APPEND SHADER_OUTPUTS
+            "${SHADER_OUTPUT}"
         )
 
     endif()
-
-    list(APPEND SHADER_OUTPUTS
-        "${SHADER_OUTPUT}"
-    )
 
 endforeach()
 
