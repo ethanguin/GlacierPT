@@ -4,9 +4,10 @@ struct HitAttributes {
     float3 normal;
 };
 
-[shader("closesthit")]
-void ClosestHit(
-    inout RayPayload payload,
-    in HitAttributes attributes) {
-    payload.color = float4(1.0, 1.0, 1.0, 1.0);
+[shader("closesthit")] void ClosestHit(inout RayPayload payload, in HitAttributes attributes) {
+    uint instanceIndex = InstanceID();
+
+    GPUSphere sphere = Spheres[instanceIndex];
+
+    payload.color = float4(sphere.color, 1.0);
 }

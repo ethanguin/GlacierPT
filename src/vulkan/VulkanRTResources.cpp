@@ -2,10 +2,29 @@
 
 #include <stdexcept>
 
-void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStructure& accelerationStructure, VkImageView outputImageView) {
+void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStructure& accelerationStructure, const Scene& scene,
+                                   VkImageView outputImageView) {
     m_context = &context;
 
     VkDevice device = context.device();
+
+    // Create GPU sphere buffer
+    // TODO add/replace with actual geometry buffers
+
+    std::vector<GPUSphere> gpuSpheres;
+
+    gpuSpheres.reserve(scene.spheres().size());
+
+    for (const SceneSphere& sphere : scene.spheres()) {
+        gpuSpheres.push_back({sphere.position, sphere.radius, sphere.color, 0.0f});
+    }
+
+    if (!gpuSpheres.empty()) {
+        m_sphereBuffer = m_context->allocator().createBuffer(sizeof(GPUSphere) * gpuSpheres.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                                             VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        m_context->allocator().uploadBuffer(m_sphereBuffer, gpuSpheres.data(), sizeof(GPUSphere) * gpuSpheres.size());
+    }
 
     // Descriptor set layout
 
@@ -22,12 +41,17 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     imageBinding.descriptorCount = 1;
     imageBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
-    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding, imageBinding};
+    VkDescriptorSetLayoutBinding sphereBinding{};
+    sphereBinding.binding = 2;
+    sphereBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    sphereBinding.descriptorCount = 1;
+    sphereBinding.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding, imageBinding, sphereBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 
-    layoutInfo.bindingCount = 2;
+    layoutInfo.bindingCount = 3;
     layoutInfo.pBindings = bindings;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS) {
@@ -36,14 +60,15 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
 
     // Descriptor pool
 
-    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1}, {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
+    VkDescriptorPoolSize poolSizes[] = {
+        {VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1}, {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}, {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}};
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 
     poolInfo.maxSets = 1;
 
-    poolInfo.poolSizeCount = 2;
+    poolInfo.poolSizeCount = 3;
     poolInfo.pPoolSizes = poolSizes;
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS) {
@@ -115,17 +140,38 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
 
     imageWrite.pImageInfo = &imageInfo;
 
-    // Write both descriptors
+    // Sphere buffer descriptor
 
-    VkWriteDescriptorSet writes[] = {tlasWrite, imageWrite};
+    VkDescriptorBufferInfo sphereBufferInfo{};
+    sphereBufferInfo.buffer = m_sphereBuffer.buffer;
+    sphereBufferInfo.offset = 0;
+    sphereBufferInfo.range = sizeof(GPUSphere) * scene.spheres().size();
 
-    vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
+    VkWriteDescriptorSet sphereWrite{};
+    sphereWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+
+    sphereWrite.dstSet = m_descriptorSet;
+    sphereWrite.dstBinding = 2;
+    sphereWrite.dstArrayElement = 0;
+
+    sphereWrite.descriptorCount = 1;
+    sphereWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    sphereWrite.pBufferInfo = &sphereBufferInfo;
+
+    // Write descriptors
+
+    VkWriteDescriptorSet writes[] = {tlasWrite, imageWrite, sphereWrite};
+
+    vkUpdateDescriptorSets(device, 3, writes, 0, nullptr);
 }
 
 void VulkanRTResources::shutdown() {
     if (m_context == nullptr) {
         return;
     }
+
+    m_context->allocator().destroyBuffer(m_sphereBuffer);
 
     VkDevice device = m_context->device();
 

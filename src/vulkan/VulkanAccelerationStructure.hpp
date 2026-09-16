@@ -1,5 +1,6 @@
 #pragma once
 
+#include "scene/Scene.hpp"
 #include "VulkanContext.hpp"
 #include "VulkanCommands.hpp"
 
@@ -11,8 +12,8 @@ public:
     void initialize(VulkanContext& context, VulkanCommands& commands);
     void shutdown();
 
-    void buildBLAS();
-    void buildTLAS();
+    void buildBLAS(const Scene& scene);
+    void buildTLAS(const Scene& scene);
 
     VkAccelerationStructureKHR tlas() const {
         return m_tlas;

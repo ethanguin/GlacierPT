@@ -1,7 +1,7 @@
 #include "VulkanRenderer.hpp"
 #include "Vertex.hpp"
 
-void VulkanRenderer::initialize(GLFWwindow* window) {
+void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene) {
     m_window = window;
 
     m_context.initialize(window);
@@ -21,13 +21,13 @@ void VulkanRenderer::initialize(GLFWwindow* window) {
 
     m_accelerationStructure.initialize(m_context, m_commands);
 
-    m_accelerationStructure.buildBLAS();
+    m_accelerationStructure.buildBLAS(scene);
 
-    m_accelerationStructure.buildTLAS();
+    m_accelerationStructure.buildTLAS(scene);
 
     createRayTracingImage();
 
-    m_rayTracingResources.initialize(m_context, m_accelerationStructure, m_rayTracingImageView);
+    m_rayTracingResources.initialize(m_context, m_accelerationStructure, scene, m_rayTracingImageView);
 
     PFN_vkCmdTraceRaysKHR m_vkCmdTraceRaysKHR = nullptr;
 

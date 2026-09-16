@@ -63,13 +63,22 @@ void VulkanAccelerationStructure::loadFunctions() {
     }
 }
 
-void VulkanAccelerationStructure::buildBLAS() {
+void VulkanAccelerationStructure::buildBLAS(const Scene& scene) {
     m_blas.clear();
 
-    const VkAabbPositionsKHR aabbs[] = {
-        {-2.5f, -1.0f, -1.0f, -0.5f, 1.0f, 1.0f}, {-1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f}, {0.5f, -1.0f, -1.0f, 2.5f, 1.0f, 1.0f}};
+    // TODO replace spheres with actual triangle mesh
 
-    for (const auto& aabb : aabbs) {
+    for (const SceneSphere& sphere : scene.spheres()) {
+        VkAabbPositionsKHR aabb{};
+
+        aabb.minX = sphere.position.x - sphere.radius;
+        aabb.minY = sphere.position.y - sphere.radius;
+        aabb.minZ = sphere.position.z - sphere.radius;
+
+        aabb.maxX = sphere.position.x + sphere.radius;
+        aabb.maxY = sphere.position.y + sphere.radius;
+        aabb.maxZ = sphere.position.z + sphere.radius;
+
         createBLAS(aabb);
     }
 }
@@ -175,7 +184,12 @@ void VulkanAccelerationStructure::createBLAS(const VkAabbPositionsKHR& aabb) {
     m_blas.push_back(blas);
 }
 
-void VulkanAccelerationStructure::buildTLAS() {
+void VulkanAccelerationStructure::buildTLAS(const Scene& scene) {
+    // error if BLAS isn't up to date with the given scene
+    if (m_blas.size() != scene.spheres().size()) {
+        throw std::runtime_error("BLAS count does not match scene sphere count.");
+    }
+
     if (m_blas.empty()) {
         throw std::runtime_error("Cannot build TLAS without BLAS");
     }

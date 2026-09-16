@@ -2,11 +2,16 @@
 #include <stdexcept>
 
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include "vulkan/VulkanRenderer.hpp"
+#include "scene/Camera.hpp"
+#include "scene/Scene.hpp"
 
 int main() {
     std::cout << "Starting GlacierPT...\n";
+
+    // Create GLFW window
 
     glfwSetErrorCallback([](int error, const char* description) { std::cerr << "GLFW error " << error << ": " << description << '\n'; });
 
@@ -17,7 +22,7 @@ int main() {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "GlacierPT", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1920, 1080, "GlacierPT", nullptr, nullptr);
 
     if (!window) {
         std::cerr << "Failed to create GLFW window.\n";
@@ -27,10 +32,20 @@ int main() {
 
     std::cout << "GLFW window created.\n";
 
+    // Create Scene description
+
+    Scene scene;
+
+    scene.addSphere({-6.0f, 0.0f, -10.0f}, 5.0f, {0.91f, 0.21f, 0.21f});
+    scene.addSphere({0.0f, 0.0f, -10.0f}, 5.0f, {0.21, 0.91f, 0.21f});
+    scene.addSphere({6.0f, 0.0f, -10.0f}, 5.0f, {0.21f, 0.21f, 0.91f});
+
+    // Create Vulkan Renderer
+
     try {
         VulkanRenderer renderer;
 
-        renderer.initialize(window);
+        renderer.initialize(window, scene);
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();

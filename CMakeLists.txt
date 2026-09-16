@@ -37,9 +37,16 @@ FetchContent_Declare(
     GIT_TAG v3.4.0
 )
 
+FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 1.0.3
+)
+
 FetchContent_MakeAvailable(glfw)
 FetchContent_MakeAvailable(vk_bootstrap)
 FetchContent_MakeAvailable(vma)
+FetchContent_MakeAvailable(glm)
 
 file(GLOB_RECURSE GLACIERPT_SRC_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -62,6 +69,7 @@ target_link_libraries(GlacierPT
         glfw
         vk-bootstrap::vk-bootstrap
         GPUOpen::VulkanMemoryAllocator
+        glm::glm
 )
 
 # SHADER COMPILATION

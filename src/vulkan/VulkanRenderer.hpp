@@ -1,5 +1,6 @@
 #pragma once
 
+#include "scene/Scene.hpp"
 #include "VulkanContext.hpp"
 #include "VulkanSwapchain.hpp"
 #include "VulkanCommands.hpp"
@@ -15,7 +16,7 @@
 
 class VulkanRenderer {
 public:
-    void initialize(GLFWwindow* window);
+    void initialize(GLFWwindow* window, const Scene& scene);
     void shutdown();
 
     void drawFrame();
