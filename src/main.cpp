@@ -14,6 +14,8 @@
 #include "utils/Color.hpp"
 
 int main() {
+    uint32_t renderWidth = 1920;
+    uint32_t renderHeight = 1080;
     std::cout << "Starting GlacierPT...\n";
 
     // Create GLFW window
@@ -27,13 +29,27 @@ int main() {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    GLFWwindow* window = glfwCreateWindow(1920, 1080, "GlacierPT", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(renderWidth, renderHeight, "GlacierPT", nullptr, nullptr);
 
     if (!window) {
         std::cerr << "Failed to create GLFW window.\n";
         glfwTerminate();
         return 1;
     }
+
+    glfwSetWindowAspectRatio(window, static_cast<int>(renderWidth), static_cast<int>(renderHeight));
+
+    // set to fullscreen borderless windowed
+    glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_FALSE);
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+    int monitorX, monitorY;
+    int monitorWidth, monitorHeight;
+
+    glfwGetMonitorWorkarea(monitor, &monitorX, &monitorY, &monitorWidth, &monitorHeight);
+
+    glfwSetWindowPos(window, monitorX, monitorY);
+    glfwSetWindowSize(window, monitorWidth, monitorHeight);
 
     std::cout << "GLFW window created.\n";
 
@@ -50,7 +66,7 @@ int main() {
     try {
         VulkanRenderer renderer;
 
-        renderer.initialize(window, scene);
+        renderer.initialize(window, scene, renderWidth, renderHeight);
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();

@@ -33,9 +33,11 @@ struct HitAttributes {
 
     float hitT = t0;
 
-    if (hitT < 0.001) {
+    if (hitT < 0.001)
         hitT = t1;
-    }
+
+    if (hitT < 0.001)
+        return;
 
     if (hitT >= 0.001) {
         float3 hitPosition = rayOrigin + rayDirection * hitT;

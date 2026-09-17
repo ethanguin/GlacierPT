@@ -17,7 +17,7 @@
 
 class VulkanRenderer {
 public:
-    void initialize(GLFWwindow* window, const Scene& scene);
+    void initialize(GLFWwindow* window, const Scene& scene, uint32_t renderWidth, uint32_t renderHeight);
     void shutdown();
 
     void drawFrame();
@@ -48,6 +48,7 @@ private:
     void drawTriangle(VkCommandBuffer cmd);
 
     GLFWwindow* m_window = nullptr;
+    VkExtent2D m_renderExtent{};
 
     VulkanContext m_context;
     VulkanSwapchain m_swapchain;

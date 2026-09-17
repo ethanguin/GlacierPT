@@ -1,7 +1,7 @@
 #include "VulkanRenderer.hpp"
 #include "Vertex.hpp"
 
-void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene) {
+void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, uint32_t renderWidth, uint32_t renderHeight) {
     m_window = window;
 
     m_context.initialize(window);
@@ -10,6 +10,9 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene) {
     int height;
 
     glfwGetFramebufferSize(window, &width, &height);
+
+    m_renderExtent.width = renderWidth;
+    m_renderExtent.height = renderHeight;
 
     m_swapchain.initialize(m_context.physicalDevice(), m_context.device(), m_context.surface(), width, height);
 
@@ -253,8 +256,8 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     VkStridedDeviceAddressRegionKHR callableRegion{};
 
-    m_rayTracingPipeline.traceRaysFunction()(cmd, &raygenRegion, &missRegion, &hitRegion, &callableRegion, m_swapchain.extent().width,
-                                             m_swapchain.extent().height, 1);
+    m_rayTracingPipeline.traceRaysFunction()(cmd, &raygenRegion, &missRegion, &hitRegion, &callableRegion, m_renderExtent.width,
+                                             m_renderExtent.height, 1);
 
     // RT IMAGE BARRIER
 
@@ -360,12 +363,36 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     // Set up RT extents
     VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
+    const float renderAspect = static_cast<float>(m_renderExtent.width) / static_cast<float>(m_renderExtent.height);
 
-    viewport.width = static_cast<float>(m_swapchain.extent().width);
+    const float windowAspect = static_cast<float>(m_swapchain.extent().width) / static_cast<float>(m_swapchain.extent().height);
 
-    viewport.height = static_cast<float>(m_swapchain.extent().height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    if (windowAspect > renderAspect) {
+        // Window is wider than the render.
+        // Add pillarboxing on the left/right.
+
+        viewport.height = static_cast<float>(m_swapchain.extent().height);
+
+        viewport.width = viewport.height * renderAspect;
+
+        viewport.x = (static_cast<float>(m_swapchain.extent().width) - viewport.width) * 0.5f;
+
+        viewport.y = 0.0f;
+    } else {
+        // Window is taller/narrower than the render.
+        // Add letterboxing on the top/bottom.
+
+        viewport.width = static_cast<float>(m_swapchain.extent().width);
+
+        viewport.height = viewport.width / renderAspect;
+
+        viewport.x = 0.0f;
+
+        viewport.y = (static_cast<float>(m_swapchain.extent().height) - viewport.height) * 0.5f;
+    }
 
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
@@ -427,30 +454,7 @@ void VulkanRenderer::recreateSwapchain() {
 
     vkDeviceWaitIdle(device);
 
-    // Swapchain
     m_swapchain.recreate(m_context.physicalDevice(), device, m_context.surface(), width, height);
-
-    // RT output image must match the new swapchain extent.
-    destroyRayTracingImage();
-    createRayTracingImage();
-
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageView = m_rayTracingImageView;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    VkWriteDescriptorSet imageWrite{};
-    imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    imageWrite.dstSet = m_rayTracingResources.descriptorSet();
-    imageWrite.dstBinding = 1;
-    imageWrite.dstArrayElement = 0;
-    imageWrite.descriptorCount = 1;
-    imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    imageWrite.pImageInfo = &imageInfo;
-
-    vkUpdateDescriptorSets(m_context.device(), 1, &imageWrite, 0, nullptr);
-
-    m_presentationPipeline.updateDescriptorSet(m_rayTracingImageView);
-    m_rayTracingImageInitialized = false;
 }
 
 void VulkanRenderer::submitFrame(VulkanFrame& frame, uint32_t imageIndex) {
@@ -479,7 +483,7 @@ void VulkanRenderer::submitFrame(VulkanFrame& frame, uint32_t imageIndex) {
 }
 
 void VulkanRenderer::createRayTracingImage() {
-    VkExtent2D extent = m_swapchain.extent();
+    VkExtent2D extent = m_renderExtent;
 
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;

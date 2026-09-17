@@ -11,6 +11,35 @@ struct GPUSphere {
     float4 color;
 };
 
+struct DirectionalLight {
+    float3 direction;
+    float3 color;
+    float intensity;
+};
+
+struct Camera {
+    float3 position;
+    float focalLength;
+    float sensorWidth;
+};
+
+// Temp Data for cam/lights
+Camera GetCamera() {
+    Camera cam;
+    cam.position = float3(0.0f, 0.0f, 60.0f);
+    cam.focalLength = 50.0;
+    cam.sensorWidth = 36.0;
+    return cam;
+}
+
+DirectionalLight GetDirectionalLight() {
+    DirectionalLight light;
+    light.direction = normalize(float3(1.0f, -1.0f, -1.0f));
+    light.color = float3(1.0f, 1.0f, 1.0f);
+    light.intensity = 2.0f;
+    return light;
+}
+
 // SHARED FUNCTIONS
 uint PCGHash(uint input) {
     uint state = input * 747796405u + 2891336453u;

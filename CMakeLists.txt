@@ -116,6 +116,10 @@ file(GLOB_RECURSE SHADER_SOURCES CONFIGURE_DEPENDS
     "${SHADER_SOURCE_DIR}/*.hlsl"
 )
 
+file(GLOB_RECURSE SHADER_INCLUDES CONFIGURE_DEPENDS
+    "${SHADER_SOURCE_DIR}/*.hlsli"
+)
+
 set(SHADER_OUTPUTS)
 
 foreach(SHADER_SOURCE ${SHADER_SOURCES})
@@ -143,7 +147,9 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
                     "${SHADER_SOURCE}"
                     -o "${SHADER_OUTPUT}"
 
-            DEPENDS "${SHADER_SOURCE}"
+            DEPENDS
+                "${SHADER_SOURCE}"
+                ${SHADER_INCLUDES}
 
             COMMENT "Compiling GLSL shader ${SHADER_FILENAME}"
             VERBATIM
@@ -236,7 +242,9 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
                         -Fo "${SHADER_OUTPUT}"
                         "${SHADER_SOURCE}"
 
-                DEPENDS "${SHADER_SOURCE}"
+                DEPENDS
+                    "${SHADER_SOURCE}"
+                    ${SHADER_INCLUDES}
 
                 COMMENT "Compiling HLSL ray tracing shader ${SHADER_FILENAME}"
                 VERBATIM
