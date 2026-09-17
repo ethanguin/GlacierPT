@@ -187,6 +187,7 @@ void VulkanScreenshot::writePPM() {
     if (!file) {
         throw std::runtime_error("Failed while writing screenshot: " + m_filename);
     }
+    printf("Screenshot saved to: %s\n", m_filename.c_str());
 }
 
 void VulkanScreenshot::writePNG() {
@@ -246,4 +247,22 @@ void VulkanScreenshot::writePNG() {
     if (!stbi_write_png(m_filename.c_str(), static_cast<int>(m_width), static_cast<int>(m_height), 4, rgba.data(), stride)) {
         throw std::runtime_error("Failed to write PNG screenshot: " + m_filename);
     }
+
+    printf("Screenshot saved to: %s\n", m_filename.c_str());
+}
+
+void VulkanScreenshot::resize(uint32_t width, uint32_t height, VkFormat format) {
+    if (m_requested || m_copyRecorded) {
+        throw std::runtime_error("Cannot resize screenshot buffer while capture is pending");
+    }
+
+    destroyStagingBuffer();
+
+    m_width = width;
+    m_height = height;
+    m_format = format;
+
+    m_bufferSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
+
+    createStagingBuffer();
 }

@@ -4,6 +4,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <filesystem>
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -95,9 +96,16 @@ int main() {
                 std::tm localTime{};
                 localtime_s(&localTime, &time);
 
+                std::filesystem::path screenshotDir = std::filesystem::current_path() / "Screenshots";
+
+                std::filesystem::create_directories(screenshotDir);
+
                 std::ostringstream filename;
-                filename << "C:\\Users\\ethan\\Pictures\\Screenshots\\" << "GlacierPT_" << std::put_time(&localTime, "%Y-%m-%d_%H-%M-%S");
-                renderer.requestScreenshot(filename.str());
+                filename << "GlacierPT_" << std::put_time(&localTime, "%Y-%m-%d_%H-%M-%S");
+
+                std::filesystem::path screenshotPath = screenshotDir / filename.str();
+
+                renderer.requestScreenshot(screenshotPath.string());
             }
 
             renderer.drawFrame();

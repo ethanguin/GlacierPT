@@ -248,6 +248,11 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rayTracingPipeline.layout(), 0, 1, &descriptorSet, 0, nullptr);
 
+    // Push FrameIndex to the ray-generation shader.
+    uint32_t frameIndex = m_currentFrame;
+
+    vkCmdPushConstants(cmd, m_rayTracingPipeline.layout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(frameIndex), &frameIndex);
+
     VkStridedDeviceAddressRegionKHR raygenRegion = m_rayTracingPipeline.raygenRegion();
 
     VkStridedDeviceAddressRegionKHR missRegion = m_rayTracingPipeline.missRegion();
@@ -455,6 +460,8 @@ void VulkanRenderer::recreateSwapchain() {
     vkDeviceWaitIdle(device);
 
     m_swapchain.recreate(m_context.physicalDevice(), device, m_context.surface(), width, height);
+
+    m_screenshot.resize(m_swapchain.extent().width, m_swapchain.extent().height, m_swapchain.imageFormat());
 }
 
 void VulkanRenderer::submitFrame(VulkanFrame& frame, uint32_t imageIndex) {

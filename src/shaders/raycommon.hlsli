@@ -69,9 +69,12 @@ float2 Random2(inout uint state) {
 }
 
 // SHARED BUFFERS
-cbuffer FrameConstants : register(b0) {
+struct FrameConstants {
     uint FrameIndex;
 };
+
+[[vk::push_constant]]
+ConstantBuffer<FrameConstants> frameConstants;
 
 // VULKAN BINGINDS
 [[vk::binding(0, 0)]]

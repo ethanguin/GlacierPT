@@ -7,7 +7,7 @@ static const uint PIXEL_SAMPLES = 10;
     uint2 resolution = DispatchRaysDimensions().xy;
 
     uint seed = pixel.x + pixel.y * resolution.x;
-    seed ^= FrameIndex * 0x9E3779B9u;
+    seed ^= frameConstants.FrameIndex * 0x9E3779B9u;
     seed = PCGHash(seed);
 
     Camera cam = GetCamera();

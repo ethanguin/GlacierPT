@@ -27,6 +27,8 @@ public:
         return m_requested || m_copyRecorded;
     }
 
+    void resize(uint32_t width, uint32_t height, VkFormat format);
+
 private:
     void createStagingBuffer();
     void destroyStagingBuffer();

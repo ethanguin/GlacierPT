@@ -32,11 +32,19 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
 
     VkDescriptorSetLayout descriptorSetLayout = resources.descriptorSetLayout();
 
+    VkPushConstantRange pushConstantRange{};
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(uint32_t);
+
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
     layoutInfo.setLayoutCount = 1;
     layoutInfo.pSetLayouts = &descriptorSetLayout;
+
+    layoutInfo.pushConstantRangeCount = 1;
+    layoutInfo.pPushConstantRanges = &pushConstantRange;
 
     if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create ray tracing pipeline layout.");
