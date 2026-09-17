@@ -7,5 +7,8 @@ struct HitAttributes {
 [shader("closesthit")] void ClosestHit(inout RayPayload payload, in HitAttributes attributes) {
     uint instanceIndex = InstanceID();
     GPUSphere sphere = Spheres[instanceIndex];
+
+    // Lighting Math
+
     payload.color = sphere.color;
 };
