@@ -23,6 +23,11 @@ struct Camera {
     float sensorWidth;
 };
 
+struct AmbientLight {
+    float3 color;
+    float intensity;
+};
+
 // Temp Data for cam/lights
 Camera GetCamera() {
     Camera cam;
@@ -38,6 +43,13 @@ DirectionalLight GetDirectionalLight() {
     light.color = float3(1.0f, 1.0f, 1.0f);
     light.intensity = 2.0f;
     return light;
+}
+
+AmbientLight GetAmbientLight() {
+    AmbientLight ambLight;
+    ambLight.color = float3(0.91f, 0.608f, 0.91f);
+    ambLight.intensity = 0.2f;
+    return ambLight;
 }
 
 // SHARED FUNCTIONS

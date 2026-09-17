@@ -39,17 +39,17 @@ int main() {
 
     glfwSetWindowAspectRatio(window, static_cast<int>(renderWidth), static_cast<int>(renderHeight));
 
-    // set to fullscreen borderless windowed
-    glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_FALSE);
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    // // set to fullscreen borderless windowed
+    // glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_FALSE);
+    // GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
-    int monitorX, monitorY;
-    int monitorWidth, monitorHeight;
+    // int monitorX, monitorY;
+    // int monitorWidth, monitorHeight;
 
-    glfwGetMonitorWorkarea(monitor, &monitorX, &monitorY, &monitorWidth, &monitorHeight);
+    // glfwGetMonitorWorkarea(monitor, &monitorX, &monitorY, &monitorWidth, &monitorHeight);
 
-    glfwSetWindowPos(window, monitorX, monitorY);
-    glfwSetWindowSize(window, monitorWidth, monitorHeight);
+    // glfwSetWindowPos(window, monitorX, monitorY);
+    // glfwSetWindowSize(window, monitorWidth, monitorHeight);
 
     std::cout << "GLFW window created.\n";
 
@@ -57,9 +57,22 @@ int main() {
 
     Scene scene;
 
-    scene.addSphere({-10.0f, 0.0f, -10.0f}, 3.5f, srgbToLinear({0.631f, 0.557f, 0.0f}));
-    scene.addSphere({0.0f, 0.0f, -10.0f}, 3.5f, srgbToLinear({0.541f, 0.071f, 0.51f}));
-    scene.addSphere({10.0f, 0.0f, -10.0f}, 3.5f, srgbToLinear({1.0f, 0.463f, 0.561f}));
+    scene.addSphere({-12.0f, 5.0f, -28.0f}, 6.0f, srgbToLinear({0.08f, 0.25f, 0.75f}));
+    scene.addSphere({0.0f, -1.0f, -34.0f}, 8.0f, srgbToLinear({0.75f, 0.10f, 0.08f}));
+    scene.addSphere({13.0f, 4.0f, -30.0f}, 5.5f, srgbToLinear({0.10f, 0.65f, 0.35f}));
+    scene.addSphere({-17.0f, -4.0f, -20.0f}, 3.0f, srgbToLinear({0.95f, 0.65f, 0.05f}));
+    scene.addSphere({-7.0f, 3.0f, -19.0f}, 4.0f, srgbToLinear({0.65f, 0.08f, 0.75f}));
+    scene.addSphere({4.5f, -3.0f, -21.0f}, 3.5f, srgbToLinear({0.05f, 0.55f, 0.85f}));
+    scene.addSphere({15.0f, -2.0f, -18.0f}, 4.5f, srgbToLinear({0.95f, 0.20f, 0.35f}));
+    scene.addSphere({-13.0f, -6.0f, -12.0f}, 2.2f, srgbToLinear({0.95f, 0.30f, 0.05f}));
+    scene.addSphere({-4.0f, -5.0f, -11.0f}, 1.5f, srgbToLinear({0.10f, 0.85f, 0.70f}));
+    scene.addSphere({2.5f, 5.0f, -13.0f}, 2.0f, srgbToLinear({0.85f, 0.15f, 0.60f}));
+    scene.addSphere({9.0f, 5.0f, -12.0f}, 2.8f, srgbToLinear({0.20f, 0.40f, 0.95f}));
+    scene.addSphere({17.0f, -5.0f, -11.0f}, 1.8f, srgbToLinear({0.95f, 0.80f, 0.10f}));
+    scene.addSphere({-9.0f, 8.0f, -10.0f}, 0.9f, srgbToLinear({0.95f, 0.95f, 0.95f}));
+    scene.addSphere({-1.0f, 7.0f, -16.0f}, 1.1f, srgbToLinear({0.20f, 0.95f, 0.95f}));
+    scene.addSphere({7.0f, -7.0f, -15.0f}, 1.0f, srgbToLinear({0.95f, 0.15f, 0.10f}));
+    scene.addSphere({12.0f, 8.0f, -20.0f}, 1.3f, srgbToLinear({0.70f, 0.20f, 0.95f}));
 
     // Create Vulkan Renderer
 
