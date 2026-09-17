@@ -32,6 +32,7 @@ Uses GLFW for windowing, vk_bootstrap for boilerplate, VMA for memory management
 - [ ] lightweight render graph
 
 ### Tooling
+- [x] Screenshot Utility
 - [ ] Dear ImGui + parameter registry
 - [ ] JSON config serialization
 - [ ] shader hot reload (file water + ShaderManager)
