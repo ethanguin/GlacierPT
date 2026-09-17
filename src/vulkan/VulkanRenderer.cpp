@@ -427,7 +427,30 @@ void VulkanRenderer::recreateSwapchain() {
 
     vkDeviceWaitIdle(device);
 
+    // Swapchain
     m_swapchain.recreate(m_context.physicalDevice(), device, m_context.surface(), width, height);
+
+    // RT output image must match the new swapchain extent.
+    destroyRayTracingImage();
+    createRayTracingImage();
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageView = m_rayTracingImageView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    VkWriteDescriptorSet imageWrite{};
+    imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    imageWrite.dstSet = m_rayTracingResources.descriptorSet();
+    imageWrite.dstBinding = 1;
+    imageWrite.dstArrayElement = 0;
+    imageWrite.descriptorCount = 1;
+    imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    imageWrite.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(m_context.device(), 1, &imageWrite, 0, nullptr);
+
+    m_presentationPipeline.updateDescriptorSet(m_rayTracingImageView);
+    m_rayTracingImageInitialized = false;
 }
 
 void VulkanRenderer::submitFrame(VulkanFrame& frame, uint32_t imageIndex) {
