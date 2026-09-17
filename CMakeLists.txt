@@ -48,6 +48,31 @@ FetchContent_MakeAvailable(vk_bootstrap)
 FetchContent_MakeAvailable(vma)
 FetchContent_MakeAvailable(glm)
 
+set(STB_IMAGE_WRITE_DIR "${CMAKE_BINARY_DIR}/external/stb")
+set(STB_IMAGE_WRITE_HEADER "${STB_IMAGE_WRITE_DIR}/stb_image_write.h")
+
+file(MAKE_DIRECTORY "${STB_IMAGE_WRITE_DIR}")
+
+if(NOT EXISTS "${STB_IMAGE_WRITE_HEADER}")
+    file(DOWNLOAD
+        "https://raw.githubusercontent.com/nothings/stb/1ee679c/stb_image_write.h"
+        "${STB_IMAGE_WRITE_HEADER}"
+        SHOW_PROGRESS
+        TLS_VERIFY ON
+        STATUS STB_DOWNLOAD_STATUS
+        LOG STB_DOWNLOAD_LOG
+    )
+
+    list(GET STB_DOWNLOAD_STATUS 0 STB_DOWNLOAD_CODE)
+
+    if(NOT STB_DOWNLOAD_CODE EQUAL 0)
+        message(FATAL_ERROR
+            "Failed to download stb_image_write.h:\n"
+            "${STB_DOWNLOAD_LOG}"
+        )
+    endif()
+endif()
+
 file(GLOB_RECURSE GLACIERPT_SRC_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
@@ -59,6 +84,7 @@ add_executable(GlacierPT
 target_include_directories(GlacierPT
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        "${STB_IMAGE_WRITE_DIR}"
 )
 
 target_compile_features(GlacierPT PRIVATE cxx_std_20)

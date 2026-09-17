@@ -1,5 +1,9 @@
 #include <iostream>
 #include <stdexcept>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -54,6 +58,19 @@ int main() {
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
             }
+
+            if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+                auto now = std::chrono::system_clock::now();
+                std::time_t time = std::chrono::system_clock::to_time_t(now);
+
+                std::tm localTime{};
+                localtime_s(&localTime, &time);
+
+                std::ostringstream filename;
+                filename << "C:\\Users\\ethan\\Pictures\\Screenshots\\" << "GlacierPT_" << std::put_time(&localTime, "%Y-%m-%d_%H-%M-%S");
+                renderer.requestScreenshot(filename.str());
+            }
+
             renderer.drawFrame();
         }
 

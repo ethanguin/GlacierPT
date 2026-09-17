@@ -13,6 +13,8 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene) {
 
     m_swapchain.initialize(m_context.physicalDevice(), m_context.device(), m_context.surface(), width, height);
 
+    m_screenshot.initialize(m_context, m_swapchain.extent().width, m_swapchain.extent().height, m_swapchain.imageFormat());
+
     m_pipeline.initialize(m_context.device(), m_swapchain.imageFormat());
 
     createTriangleVertexBuffer();
@@ -55,6 +57,8 @@ void VulkanRenderer::shutdown() {
 
     vkDeviceWaitIdle(device);
 
+    m_screenshot.shutdown();
+
     destroyFrames();
 
     m_rayTracingPipeline.shutdown();
@@ -84,6 +88,8 @@ void VulkanRenderer::drawFrame() {
     VkDevice device = m_context.device();
 
     vkWaitForFences(device, 1, &frame.renderFence, VK_TRUE, UINT64_MAX);
+
+    m_screenshot.saveIfReady(m_currentFrame);
 
     uint32_t imageIndex;
 
@@ -384,19 +390,22 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     // PRESENTATION
 
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    if (!m_screenshot.recordCopy(cmd, image, m_currentFrame)) {
 
-    barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_NONE;
+        barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 
-    barrier.dstAccessMask = VK_ACCESS_2_NONE;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_NONE;
 
-    barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        barrier.dstAccessMask = VK_ACCESS_2_NONE;
 
-    barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+        barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+    }
 
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
         throw std::runtime_error("Failed to record command buffer.");

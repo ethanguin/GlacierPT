@@ -10,6 +10,7 @@
 #include "VulkanPresentationPipeline.hpp"
 #include "VulkanAccelerationStructure.hpp"
 #include "VulkanRTResources.hpp"
+#include "VulkanScreenshot.hpp"
 
 #include <array>
 #include <vector>
@@ -20,6 +21,10 @@ public:
     void shutdown();
 
     void drawFrame();
+
+    void requestScreenshot(const std::string& filename) {
+        m_screenshot.request(filename);
+    }
 
     ~VulkanRenderer() {
         shutdown();
@@ -64,4 +69,6 @@ private:
     bool m_rayTracingImageInitialized = false;
     AllocatedImage m_rayTracingImage;
     VkImageView m_rayTracingImageView = VK_NULL_HANDLE;
+
+    VulkanScreenshot m_screenshot;
 };
