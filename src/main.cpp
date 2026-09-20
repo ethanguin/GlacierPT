@@ -40,17 +40,17 @@ int main() {
 
     glfwSetWindowAspectRatio(window, static_cast<int>(renderWidth), static_cast<int>(renderHeight));
 
-    // // set to fullscreen borderless windowed
-    // glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_FALSE);
-    // GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    // set to fullscreen borderless windowed
+    glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_FALSE);
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
-    // int monitorX, monitorY;
-    // int monitorWidth, monitorHeight;
+    int monitorX, monitorY;
+    int monitorWidth, monitorHeight;
 
-    // glfwGetMonitorWorkarea(monitor, &monitorX, &monitorY, &monitorWidth, &monitorHeight);
+    glfwGetMonitorWorkarea(monitor, &monitorX, &monitorY, &monitorWidth, &monitorHeight);
 
-    // glfwSetWindowPos(window, monitorX, monitorY);
-    // glfwSetWindowSize(window, monitorWidth, monitorHeight);
+    glfwSetWindowPos(window, monitorX, monitorY);
+    glfwSetWindowSize(window, monitorWidth, monitorHeight);
 
     std::cout << "GLFW window created.\n";
 

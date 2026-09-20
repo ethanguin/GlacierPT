@@ -27,8 +27,16 @@ static const uint PIXEL_SAMPLES = 1;
         seed = PCGHash(seed);
     }
 
-    for (uint sample = 0; sample < PIXEL_SAMPLES; ++sample) {
-        float2 jitter = (PIXEL_SAMPLES == 1) ? float2(0.5, 0.5) : Random2(seed);
+    uint totalSamples = PIXEL_SAMPLES * PIXEL_SAMPLES;
+
+    for (uint sample = 0; sample < totalSamples; ++sample) {
+
+        uint x = sample % PIXEL_SAMPLES;
+        uint y = sample / PIXEL_SAMPLES;
+
+        float2 randomOffset = Random2(seed);
+
+        float2 jitter = (float2(x, y) + randomOffset) / float(PIXEL_SAMPLES);
 
         float2 uv = (float2(pixel) + jitter) / float2(resolution);
 
@@ -53,7 +61,7 @@ static const uint PIXEL_SAMPLES = 1;
         accumulatedColor += payload.color.rgb;
     }
 
-    accumulatedColor /= float(PIXEL_SAMPLES);
+    accumulatedColor /= float(totalSamples);
 
     Output[pixel] = float4(accumulatedColor, 1.0);
 }
