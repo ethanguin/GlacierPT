@@ -18,10 +18,6 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, uint32_t
 
     m_screenshot.initialize(m_context, m_swapchain.extent().width, m_swapchain.extent().height, m_swapchain.imageFormat());
 
-    m_pipeline.initialize(m_context.device(), m_swapchain.imageFormat());
-
-    createTriangleVertexBuffer();
-
     m_commands.initialize(m_context.device(), m_context.graphicsQueueFamilyIndex());
 
     m_accelerationStructure.initialize(m_context, m_commands);
@@ -73,10 +69,6 @@ void VulkanRenderer::shutdown() {
     m_accelerationStructure.shutdown();
 
     destroyRayTracingImage();
-
-    m_context.allocator().destroyBuffer(m_triangleVertexBuffer);
-
-    m_pipeline.shutdown(device);
 
     m_commands.shutdown();
     m_swapchain.shutdown();
@@ -574,38 +566,4 @@ void VulkanCommands::freeCommandBuffer(VkCommandBuffer commandBuffer) {
     if (commandBuffer != VK_NULL_HANDLE) {
         vkFreeCommandBuffers(m_device, m_commandPool, 1, &commandBuffer);
     }
-}
-
-void VulkanRenderer::createTriangleVertexBuffer() {
-    const VkDeviceSize bufferSize = sizeof(TRIANGLE_VERTICES);
-
-    m_triangleVertexBuffer = m_context.allocator().createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    m_context.allocator().uploadBuffer(m_triangleVertexBuffer, TRIANGLE_VERTICES, bufferSize);
-}
-
-void VulkanRenderer::drawTriangle(VkCommandBuffer cmd) {
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(m_swapchain.extent().width);
-    viewport.height = static_cast<float>(m_swapchain.extent().height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = m_swapchain.extent();
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.pipeline());
-
-    VkDeviceSize offset = 0;
-
-    vkCmdBindVertexBuffers(cmd, 0, 1, &m_triangleVertexBuffer.buffer, &offset);
-
-    vkCmdDraw(cmd, 3, 1, 0, 0);
 }

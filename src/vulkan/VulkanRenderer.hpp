@@ -43,17 +43,12 @@ private:
     void createRayTracingImage();
     void destroyRayTracingImage();
 
-    void createTriangleVertexBuffer();
-
-    void drawTriangle(VkCommandBuffer cmd);
-
     GLFWwindow* m_window = nullptr;
     VkExtent2D m_renderExtent{};
 
     VulkanContext m_context;
     VulkanSwapchain m_swapchain;
     VulkanCommands m_commands;
-    VulkanPipeline m_pipeline;
     VulkanAccelerationStructure m_accelerationStructure;
     VulkanRTResources m_rayTracingResources;
     VulkanRTPipeline m_rayTracingPipeline;
@@ -64,8 +59,6 @@ private:
     std::array<VulkanFrame, MAX_FRAMES_IN_FLIGHT> m_frames;
 
     uint32_t m_currentFrame = 0;
-
-    AllocatedBuffer m_triangleVertexBuffer;
 
     bool m_rayTracingImageInitialized = false;
     AllocatedImage m_rayTracingImage;
