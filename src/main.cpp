@@ -94,7 +94,12 @@ int main() {
                 std::time_t time = std::chrono::system_clock::to_time_t(now);
 
                 std::tm localTime{};
+
+#ifdef _WIN32
                 localtime_s(&localTime, &time);
+#else
+                localtime_r(&time, &localTime);
+#endif
 
                 std::filesystem::path screenshotDir = std::filesystem::current_path() / "Screenshots";
 
