@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
+#include <iostream>
 
 namespace {
 
@@ -19,6 +20,12 @@ VkSurfaceFormatKHR chooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& fo
 VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR>& modes) {
     for (const auto mode : modes) {
         if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            return mode;
+        }
+    }
+
+    for (const auto mode : modes) {
+        if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
             return mode;
         }
     }
@@ -72,6 +79,30 @@ void VulkanSwapchain::initialize(VkPhysicalDevice physicalDevice, VkDevice devic
     }
 
     std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+
+    for (const auto mode : presentModes) {
+        switch (mode) {
+        case VK_PRESENT_MODE_IMMEDIATE_KHR:
+            std::cout << "Present mode: IMMEDIATE\n";
+            break;
+
+        case VK_PRESENT_MODE_MAILBOX_KHR:
+            std::cout << "Present mode: MAILBOX\n";
+            break;
+
+        case VK_PRESENT_MODE_FIFO_KHR:
+            std::cout << "Present mode: FIFO\n";
+            break;
+
+        case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+            std::cout << "Present mode: FIFO_RELAXED\n";
+            break;
+
+        default:
+            std::cout << "Present mode: OTHER\n";
+            break;
+        }
+    }
 
     vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data());
 
