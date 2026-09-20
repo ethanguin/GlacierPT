@@ -26,6 +26,8 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
 
     m_missShader = loadShaderModule("shaders/miss.rmiss.spv");
 
+    m_missShadowShader = loadShaderModule("shaders/missshadow.rmiss.spv");
+
     m_intersectionShader = loadShaderModule("shaders/intersection.rint.spv");
 
     m_closestHitShader = loadShaderModule("shaders/closesthit.rchit.spv");
@@ -54,92 +56,82 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
 
     VkPipelineShaderStageCreateInfo raygenStage{};
     raygenStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-
     raygenStage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-
     raygenStage.module = m_raygenShader;
-
     raygenStage.pName = "RayGen";
 
     VkPipelineShaderStageCreateInfo missStage{};
     missStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-
     missStage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
-
     missStage.module = m_missShader;
-
     missStage.pName = "Miss";
+
+    VkPipelineShaderStageCreateInfo missShadowStage{};
+    missShadowStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    missShadowStage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+    missShadowStage.module = m_missShadowShader;
+    missShadowStage.pName = "MissShadow";
 
     VkPipelineShaderStageCreateInfo intersectionStage{};
     intersectionStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-
     intersectionStage.stage = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-
     intersectionStage.module = m_intersectionShader;
-
     intersectionStage.pName = "Intersection";
 
     VkPipelineShaderStageCreateInfo closestHitStage{};
     closestHitStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-
     closestHitStage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-
     closestHitStage.module = m_closestHitShader;
-
     closestHitStage.pName = "ClosestHit";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = {raygenStage, missStage, intersectionStage, closestHitStage};
+    VkPipelineShaderStageCreateInfo shaderStages[] = {raygenStage, missStage, missShadowStage, intersectionStage, closestHitStage};
 
     // RAYGEN
 
     VkRayTracingShaderGroupCreateInfoKHR raygenGroup{};
     raygenGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-
     raygenGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-
     raygenGroup.generalShader = 0;
-
     raygenGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
-
     raygenGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
-
     raygenGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
 
     // MISS
 
     VkRayTracingShaderGroupCreateInfoKHR missGroup{};
     missGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-
     missGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-
     missGroup.generalShader = 1;
-
     missGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
-
     missGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
-
     missGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+
+    // MISS SHADOW
+
+    VkRayTracingShaderGroupCreateInfoKHR missShadowGroup{};
+    missShadowGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+    missShadowGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+    missShadowGroup.generalShader = 2;
+    missShadowGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
+    missShadowGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
+    missShadowGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
 
     // HIT (gets AABB procedurally)
 
     VkRayTracingShaderGroupCreateInfoKHR hitGroup{};
     hitGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-
     hitGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
-
     hitGroup.generalShader = VK_SHADER_UNUSED_KHR;
-
-    hitGroup.closestHitShader = 3;
-
+    hitGroup.closestHitShader = 4;
     hitGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
+    hitGroup.intersectionShader = 3;
 
-    hitGroup.intersectionShader = 2;
-
-    VkRayTracingShaderGroupCreateInfoKHR shaderGroups[] = {raygenGroup, missGroup, hitGroup};
+    VkRayTracingShaderGroupCreateInfoKHR shaderGroups[] = {raygenGroup, missGroup, missShadowGroup, hitGroup};
 
     // 0 = RayGen
     // 1 = Miss
-    // 2 = Hit
+    // 2 = Shadow Miss
+    // 3 = Hit
 
     VkRayTracingPipelineCreateInfoKHR pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
@@ -152,7 +144,7 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
 
     pipelineInfo.pGroups = shaderGroups;
 
-    pipelineInfo.maxPipelineRayRecursionDepth = 1;
+    pipelineInfo.maxPipelineRayRecursionDepth = 2;
 
     pipelineInfo.layout = m_pipelineLayout;
 
@@ -203,6 +195,12 @@ void VulkanRTPipeline::shutdown() {
         vkDestroyShaderModule(device, m_missShader, nullptr);
 
         m_missShader = VK_NULL_HANDLE;
+    }
+
+    if (m_missShadowShader != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(device, m_missShadowShader, nullptr);
+
+        m_missShadowShader = VK_NULL_HANDLE;
     }
 
     if (m_intersectionShader != VK_NULL_HANDLE) {
@@ -280,7 +278,7 @@ void VulkanRTPipeline::createShaderBindingTable() {
 
     // One record in each region, so size == stride
     const VkDeviceSize raygenSize = raygenStride;
-    const VkDeviceSize missSize = missStride;
+    const VkDeviceSize missSize = missStride * 2; // multiply by 1) miss shader 2) shadow miss shader
     const VkDeviceSize hitSize = hitStride;
 
     // Each region must start on shaderGroupBaseAlignment
@@ -293,9 +291,10 @@ void VulkanRTPipeline::createShaderBindingTable() {
     const VkDeviceSize totalSize = hitOffset + hitSize;
 
     // Get shader group handles
-    std::vector<uint8_t> handles(handleSize * 3);
+    const unsigned int shaderGroupAmt = 4;
+    std::vector<uint8_t> handles(handleSize * shaderGroupAmt);
 
-    VkResult result = m_vkGetRayTracingShaderGroupHandlesKHR(m_context->device(), m_pipeline, 0, 3, handles.size(), handles.data());
+    VkResult result = m_vkGetRayTracingShaderGroupHandlesKHR(m_context->device(), m_pipeline, 0, shaderGroupAmt, handles.size(), handles.data());
 
     if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to get ray tracing shader group handles.");
@@ -305,16 +304,13 @@ void VulkanRTPipeline::createShaderBindingTable() {
     std::vector<uint8_t> sbtData(totalSize);
 
     auto* raygenData = sbtData.data() + raygenOffset;
-
     auto* missData = sbtData.data() + missOffset;
-
     auto* hitData = sbtData.data() + hitOffset;
 
-    std::memcpy(raygenData, handles.data(), handleSize);
-
-    std::memcpy(missData, handles.data() + handleSize, handleSize);
-
-    std::memcpy(hitData, handles.data() + handleSize * 2, handleSize);
+    std::memcpy(raygenData, handles.data() + handleSize * 0, handleSize);
+    std::memcpy(missData, handles.data() + handleSize * 1, handleSize);
+    std::memcpy(missData + missStride, handles.data() + handleSize * 2, handleSize);
+    std::memcpy(hitData, handles.data() + handleSize * 3, handleSize);
 
     // Create SBT buffer
     m_shaderBindingTable = m_context->allocator().createBuffer(

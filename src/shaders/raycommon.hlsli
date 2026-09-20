@@ -6,6 +6,10 @@ struct RayPayload {
     float4 color;
 };
 
+struct ShadowPayload {
+    bool isShadowed;
+};
+
 struct GPUSphere {
     float4 positionRadius;
     float4 color;
@@ -48,7 +52,7 @@ DirectionalLight GetDirectionalLight() {
 AmbientLight GetAmbientLight() {
     AmbientLight ambLight;
     ambLight.color = float3(0.91f, 0.608f, 0.91f);
-    ambLight.intensity = 0.2f;
+    ambLight.intensity = 0.35f;
     return ambLight;
 }
 

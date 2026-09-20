@@ -53,6 +53,7 @@ private:
 
     VkShaderModule m_raygenShader = VK_NULL_HANDLE;
     VkShaderModule m_missShader = VK_NULL_HANDLE;
+    VkShaderModule m_missShadowShader = VK_NULL_HANDLE;
     VkShaderModule m_intersectionShader = VK_NULL_HANDLE;
     VkShaderModule m_closestHitShader = VK_NULL_HANDLE;
 

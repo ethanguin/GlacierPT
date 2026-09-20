@@ -1,14 +1,10 @@
 #include "raycommon.hlsli"
 
-static const uint PIXEL_SAMPLES = 10;
+static const uint PIXEL_SAMPLES = 1;
 
 [shader("raygeneration")] void RayGen() {
     uint2 pixel = DispatchRaysIndex().xy;
     uint2 resolution = DispatchRaysDimensions().xy;
-
-    uint seed = pixel.x + pixel.y * resolution.x;
-    seed ^= frameConstants.FrameIndex * 0x9E3779B9u;
-    seed = PCGHash(seed);
 
     Camera cam = GetCamera();
 
@@ -24,8 +20,15 @@ static const uint PIXEL_SAMPLES = 10;
 
     float3 accumulatedColor = 0.0;
 
+    uint seed = 0;
+    if (PIXEL_SAMPLES > 1) {
+        seed = pixel.x + pixel.y * resolution.x;
+        seed ^= 0x9E3779B9u;
+        seed = PCGHash(seed);
+    }
+
     for (uint sample = 0; sample < PIXEL_SAMPLES; ++sample) {
-        float2 jitter = Random2(seed);
+        float2 jitter = (PIXEL_SAMPLES == 1) ? float2(0.5, 0.5) : Random2(seed);
 
         float2 uv = (float2(pixel) + jitter) / float2(resolution);
 

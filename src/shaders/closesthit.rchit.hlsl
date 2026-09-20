@@ -39,7 +39,7 @@ struct HitAttributes {
     uint metallicSeed = PCGHash(instanceIndex * 0x85EBCA6Bu);
 
     float roughness = Random(roughnessSeed);
-    float metallic = Random(metallicSeed) < 0.5 ? 0.0 : 1.0;
+    float metallic = 0.0f; // Random(metallicSeed) < 0.5 ? 0.0 : 1.0;
 
     // Metalness workflow
 
@@ -76,8 +76,22 @@ struct HitAttributes {
     // Metallic surfaces have no diffuse component.
     float3 diffuse = (1.0 - F) * (1.0 - metallic) * baseColor / 3.14159265;
 
-    // Direct Lighting
-    float3 directLighting = (diffuse + specular) * dirLight.color * dirLight.intensity * NoL;
+    ShadowPayload shadowPayload;
+    shadowPayload.isShadowed = true;
+
+    RayDesc shadowRay;
+    shadowRay.Origin = hitPosition + N * 0.001;
+    shadowRay.Direction = L;
+    shadowRay.TMin = 0.001;
+    shadowRay.TMax = 1000.0;
+
+    uint shadowRayFlags = RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+
+    TraceRay(Scene, shadowRayFlags, 0xFF, 0, 0, 1, shadowRay, shadowPayload);
+
+    float shadowFactor = shadowPayload.isShadowed ? 0.0 : 1.0;
+
+    float3 directLighting = (diffuse + specular) * dirLight.color * dirLight.intensity * NoL * shadowFactor;
 
     // Ambient Lighting
     float3 ambientLighting = diffuse * ambientLight.color * ambientLight.intensity;
@@ -86,4 +100,5 @@ struct HitAttributes {
     float3 lighting = directLighting + ambientLighting;
 
     payload.color = float4(lighting, 1.0);
+    return;
 }

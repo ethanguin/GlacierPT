@@ -15,8 +15,8 @@
 #include "utils/Color.hpp"
 
 int main() {
-    uint32_t renderWidth = 1920;
-    uint32_t renderHeight = 1080;
+    uint32_t renderWidth = 2560;
+    uint32_t renderHeight = 1440;
     std::cout << "Starting GlacierPT...\n";
 
     // Create GLFW window

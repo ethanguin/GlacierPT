@@ -3,6 +3,32 @@
 #include <iostream>
 #include <stdexcept>
 
+namespace {
+
+VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+                                             const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+    // Suppress known-benign spam from RTSS/MSI Afterburner injecting
+    // VK_IMAGE_USAGE_STORAGE_BIT into the swapchain image usage.
+    static const char* kSuppressedVUIDs[] = {
+        "VUID-VkSwapchainCreateInfoKHR-imageFormat-01778",
+        "VUID-VkImageViewCreateInfo-usage-02275",
+    };
+
+    if (pCallbackData->pMessageIdName != nullptr) {
+        for (const char* vuid : kSuppressedVUIDs) {
+            if (std::strcmp(pCallbackData->pMessageIdName, vuid) == 0) {
+                return VK_FALSE;
+            }
+        }
+    }
+
+    std::cerr << "[Validation] " << pCallbackData->pMessage << '\n';
+
+    return VK_FALSE;
+}
+
+} // namespace
+
 void VulkanContext::initialize(GLFWwindow* window) {
     if (!window) {
         throw std::runtime_error("VulkanContext requires a valid GLFW window.");
@@ -79,7 +105,7 @@ void VulkanContext::createInstance() {
     auto instanceResult = instanceBuilder.set_app_name("GlacierPT")
                               .set_engine_name("GlacierPT")
                               .require_api_version(1, 3, 0)
-                              .use_default_debug_messenger()
+                              .set_debug_callback(debugCallback)
                               .request_validation_layers()
                               .build();
 
