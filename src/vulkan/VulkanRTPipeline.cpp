@@ -144,7 +144,7 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
 
     pipelineInfo.pGroups = shaderGroups;
 
-    pipelineInfo.maxPipelineRayRecursionDepth = 2;
+    pipelineInfo.maxPipelineRayRecursionDepth = 1;
 
     pipelineInfo.layout = m_pipelineLayout;
 
