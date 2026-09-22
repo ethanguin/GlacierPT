@@ -76,15 +76,17 @@ int main() {
     scene.addSphere({7.0f, -7.0f, -15.0f}, 1.0f, srgbToLinear({0.95f, 0.15f, 0.10f}));
     scene.addSphere({12.0f, 8.0f, -20.0f}, 1.3f, srgbToLinear({0.70f, 0.20f, 0.95f}));
 
-    scene.setAmbLight({0.1f, 0.1f, 0.8f}, 0.1f);
-    scene.addLight(SceneLight::Directional({0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, 0.8f));
+    scene.setAmbLight({0.9f, 0.6f, 0.9f}, 0.2f);
+    scene.addLight(SceneLight::Directional({1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, 2.0f));
+
+    Camera camera({0.0f, 0.0f, 60.0f}, {0.0f, 0.0f, -1.0f}, 50.0f, 36.0f);
 
     // Create Vulkan Renderer
 
     try {
         VulkanRenderer renderer;
 
-        renderer.initialize(window, scene, renderWidth, renderHeight);
+        renderer.initialize(window, scene, camera, renderWidth, renderHeight);
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
