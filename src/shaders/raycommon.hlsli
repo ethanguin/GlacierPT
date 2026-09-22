@@ -122,10 +122,12 @@ float3 EvaluateDirectLighting(float3 N, float3 V, float3 L, float3 baseColor, fl
 // SHARED BUFFERS
 struct GPULight {
     float3 position;
-    float3 direction;
     float range;
-    float4 color; // .rgb = color, .a = intensity
+
+    float3 direction;
     uint type;
+
+    float4 color; // .rgb = color, .a = intensity
 };
 
 struct GPUAmbientLight {

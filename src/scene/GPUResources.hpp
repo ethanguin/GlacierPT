@@ -10,12 +10,12 @@ enum class LightType : uint32_t {
 
 struct GPULight {
     glm::vec3 position; // point/spot
+    float range;        // point/spot falloff radius
 
     glm::vec3 direction; // directional/spot
-    float range;         // point/spot falloff radius
+    uint32_t type;
 
     glm::vec4 color; // .rgb = color, .a = intensity
-    uint32_t type;
 };
 static_assert(sizeof(GPULight) == 48);
 
