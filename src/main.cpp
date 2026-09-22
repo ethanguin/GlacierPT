@@ -12,6 +12,7 @@
 #include "vulkan/VulkanRenderer.hpp"
 #include "scene/Camera.hpp"
 #include "scene/Scene.hpp"
+#include "scene/SceneLight.hpp"
 #include "utils/Color.hpp"
 
 int main() {
@@ -74,6 +75,9 @@ int main() {
     scene.addSphere({-1.0f, 7.0f, -16.0f}, 1.1f, srgbToLinear({0.20f, 0.95f, 0.95f}));
     scene.addSphere({7.0f, -7.0f, -15.0f}, 1.0f, srgbToLinear({0.95f, 0.15f, 0.10f}));
     scene.addSphere({12.0f, 8.0f, -20.0f}, 1.3f, srgbToLinear({0.70f, 0.20f, 0.95f}));
+
+    scene.setAmbLight({0.1f, 0.1f, 0.8f}, 0.1f);
+    scene.addLight(SceneLight::Directional({0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, 0.8f));
 
     // Create Vulkan Renderer
 
