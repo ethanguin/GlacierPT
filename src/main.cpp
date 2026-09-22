@@ -14,6 +14,7 @@
 #include "scene/Scene.hpp"
 #include "scene/SceneLight.hpp"
 #include "utils/Color.hpp"
+#include "scene/CameraController.hpp"
 
 int main() {
     uint32_t renderWidth = 2560;
@@ -81,6 +82,13 @@ int main() {
 
     Camera camera({0.0f, 0.0f, 60.0f}, {0.0f, 0.0f, -1.0f}, 50.0f, 36.0f);
 
+    CameraController cameraController;
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
+    glfwSetCursorPos(window, width / 2.0, height / 2.0);
+    auto lastFrameTime = std::chrono::steady_clock::now();
+
     // Create Vulkan Renderer
 
     try {
@@ -91,11 +99,15 @@ int main() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
 
+            auto now = std::chrono::steady_clock::now();
+            float dt = std::chrono::duration<float>(now - lastFrameTime).count();
+            lastFrameTime = now;
+
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
             }
 
-            if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+            if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
                 auto now = std::chrono::system_clock::now();
                 std::time_t time = std::chrono::system_clock::to_time_t(now);
 
@@ -119,6 +131,8 @@ int main() {
                 renderer.requestScreenshot(screenshotPath.string());
             }
 
+            cameraController.update(window, camera, dt);
+            renderer.setCamera(camera);
             renderer.drawFrame();
         }
 

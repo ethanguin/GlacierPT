@@ -29,7 +29,26 @@ public:
         m_forward = glm::normalize(forward);
     }
 
+    void addYawPitch(float deltaYawDeg, float deltaPitchDeg) {
+        m_yaw += deltaYawDeg;
+        m_pitch = glm::clamp(m_pitch + deltaPitchDeg, -89.0f, 89.0f);
+        updateForward();
+    }
+
+    glm::vec3 right() const {
+        // Must match the raygen shader's basis exactly (worldUp cross, no roll)
+        return glm::normalize(glm::cross(m_forward, {0.0f, 1.0f, 0.0f}));
+    }
+
 private:
+    void updateForward() {
+        float yawRad = glm::radians(m_yaw);
+        float pitchRad = glm::radians(m_pitch);
+        m_forward = glm::normalize(glm::vec3(cos(pitchRad) * sin(yawRad), sin(pitchRad), -cos(pitchRad) * cos(yawRad)));
+    }
+
+    float m_yaw = 0.0f; // degrees, 0 = looking down -Z
+    float m_pitch = 0.0f;
     glm::vec3 m_position = {0.0f, 0.0f, 60.0f};
     glm::vec3 m_forward = {0.0f, 0.0f, -1.0f};
 
