@@ -5,6 +5,9 @@
 #include <iomanip>
 #include <sstream>
 #include <filesystem>
+#include <random>
+#include <cmath>
+#include <cstdlib>
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -59,7 +62,7 @@ int main() {
     // Create Scene description
 
     Scene scene;
-
+    // bright spheres clumped in center of screen
     scene.addSphere({-12.0f, 5.0f, -28.0f}, 6.0f, srgbToLinear({0.08f, 0.25f, 0.75f}));
     scene.addSphere({0.0f, -1.0f, -34.0f}, 8.0f, srgbToLinear({0.75f, 0.10f, 0.08f}));
     scene.addSphere({13.0f, 4.0f, -30.0f}, 5.5f, srgbToLinear({0.10f, 0.65f, 0.35f}));
@@ -77,8 +80,10 @@ int main() {
     scene.addSphere({7.0f, -7.0f, -15.0f}, 1.0f, srgbToLinear({0.95f, 0.15f, 0.10f}));
     scene.addSphere({12.0f, 8.0f, -20.0f}, 1.3f, srgbToLinear({0.70f, 0.20f, 0.95f}));
 
-    scene.setAmbLight({0.9f, 0.6f, 0.9f}, 0.2f);
-    scene.addLight(SceneLight::Directional({1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, 2.0f));
+    scene.setAmbLight({0.05f, 0.75f, 1.0f}, 0.3f);
+    scene.addLight(SceneLight::Directional({1.0f, -1.0f, -1.0f}, {0.5f, 0.6f, 0.2f}, 3.0f));
+    scene.addLight(SceneLight::Point({10.0f, 20.0f, -22.0f}, {1.0f, 0.0f, 0.0f}, 0.3f, 50.0f));
+    scene.addLight(SceneLight::Point({0.0f, -15.0f, -18.0f}, {1.0f, 1.0f, 0.0f}, 0.2f, 40.0f));
 
     Camera camera({0.0f, 0.0f, 60.0f}, {0.0f, 0.0f, -1.0f}, 50.0f, 36.0f);
 
