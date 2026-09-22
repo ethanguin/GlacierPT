@@ -1,22 +1,19 @@
 #pragma once
 
 #include "scene/Scene.hpp"
+#include "scene/Camera.hpp"
 #include <vulkan/vulkan.h>
 #include "VulkanContext.hpp"
 #include "VulkanAccelerationStructure.hpp"
 
-// explicit GPU sphere structure so it doesn't have to be connected to attributes for the scene sphere and add its own padding to map to HLSL
-struct GPUSphere {
-    glm::vec4 positionRadius;
-    glm::vec4 color;
-};
-static_assert(sizeof(GPUSphere) == 32);
-
 class VulkanRTResources {
 public:
-    void initialize(VulkanContext& context, VulkanAccelerationStructure& accelerationStructure, const Scene& scene, VkImageView outputImageView);
+    void initialize(VulkanContext& context, VulkanAccelerationStructure& accelerationStructure, const Scene& scene, const Camera& camera,
+                    VkImageView outputImageView);
 
     void shutdown();
+
+    void updateCamera(const Camera& camera);
 
     VkDescriptorSetLayout descriptorSetLayout() const {
         return m_descriptorSetLayout;
@@ -35,4 +32,7 @@ private:
 
     // TODO add actual geo buffer
     AllocatedBuffer m_sphereBuffer{};
+    AllocatedBuffer m_lightBuffer{};
+    AllocatedBuffer m_ambLightBuffer{};
+    AllocatedBuffer m_cameraBuffer{};
 };

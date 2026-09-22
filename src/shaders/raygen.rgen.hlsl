@@ -6,22 +6,22 @@ static const uint PIXEL_SAMPLES = 1;
     uint2 pixel = DispatchRaysIndex().xy;
     uint2 resolution = DispatchRaysDimensions().xy;
 
-    Camera cam = GetCamera();
-    DirectionalLight dirLight = GetDirectionalLight();
-    AmbientLight ambientLight = GetAmbientLight();
-
-    // Direction toward the light (constant for the whole frame).
-    float3 L = normalize(-dirLight.direction);
+    float3 camPos = CameraData.position;
+    float3 camForward = normalize(CameraData.forward);
 
     float aspectRatio = float(resolution.x) / float(resolution.y);
 
-    // Camera projection.
-    float horizontalFov = 2.0 * atan(cam.sensorWidth / (2.0 * cam.focalLength));
-
+    float horizontalFov = 2.0 * atan(CameraData.sensorWidth / (2.0 * CameraData.focalLength));
     float verticalFov = 2.0 * atan(tan(horizontalFov * 0.5) / aspectRatio);
 
     float halfWidth = tan(horizontalFov * 0.5);
     float halfHeight = tan(verticalFov * 0.5);
+
+    // Basis relative to camForward, so the camera can point anywhere
+    // (not just -Z). world up = (0,1,0).
+    float3 worldUp = float3(0.0, 1.0, 0.0);
+    float3 camRight = normalize(cross(camForward, worldUp));
+    float3 camUp = cross(camRight, camForward);
 
     float3 accumulatedColor = 0.0;
 
@@ -35,7 +35,6 @@ static const uint PIXEL_SAMPLES = 1;
     uint totalSamples = PIXEL_SAMPLES * PIXEL_SAMPLES;
 
     for (uint sample = 0; sample < totalSamples; ++sample) {
-
         uint x = sample % PIXEL_SAMPLES;
         uint y = sample / PIXEL_SAMPLES;
 
@@ -47,19 +46,14 @@ static const uint PIXEL_SAMPLES = 1;
 
         float2 ndc = uv * 2.0 - 1.0;
 
-        // +X screen right
-        // +Y screen up
-        // -Z camera forward
-        float3 rayDirection = normalize(float3(ndc.x * halfWidth, ndc.y * halfHeight, -1.0));
-
-        // PATH LOOP
+        float3 rayDirection = normalize(camForward + camRight * (ndc.x * halfWidth) + camUp * (ndc.y * halfHeight));
 
         float3 radiance = 0.0;
         float3 throughput = 1.0;
         bool pathEnded = false;
 
         RayDesc ray;
-        ray.Origin = cam.position;
+        ray.Origin = camPos;
         ray.Direction = rayDirection;
         ray.TMin = 0.001;
         ray.TMax = 1000.0;
@@ -68,10 +62,8 @@ static const uint PIXEL_SAMPLES = 1;
             RayPayload payload = (RayPayload)0;
             payload.hitT = -1.0;
 
-            // Miss index 0 = regular miss
             TraceRay(Scene, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
 
-            // Escaped the scene: add the sky, tinted by whatever the path has picked up.
             if (payload.hitT < 0.0) {
                 radiance += throughput * GetSkyColor(ray.Direction);
                 pathEnded = true;
@@ -81,13 +73,41 @@ static const uint PIXEL_SAMPLES = 1;
             float3 N = payload.normal;
             float3 V = -ray.Direction;
             float NoV = saturate(dot(N, V));
-            float NoL = saturate(dot(N, L));
 
-            // Direct light + shadow
+            // Direct lighting
 
-            float visibility = 0.0;
+            float3 direct = 0.0;
 
-            if (NoL > 0.0) {
+            // Loop through each light
+            for (uint lightIdx = 0; lightIdx < frameConstants.LightCount; ++lightIdx) {
+                GPULight light = Lights[lightIdx];
+
+                float3 L;
+                float attenuation = 1.0;
+                float shadowMaxT = 1000.0;
+
+                if (light.type == LIGHT_TYPE_DIRECTIONAL) {
+                    L = normalize(-light.direction);
+                } else {
+                    float3 toLight = light.position - payload.position;
+                    float dist = length(toLight);
+                    L = toLight / max(dist, 0.0001);
+                    shadowMaxT = dist;
+
+                    attenuation = saturate(1.0 - (dist * dist) / max(light.range * light.range, 0.0001));
+                    attenuation *= attenuation;
+
+                    if (light.type == LIGHT_TYPE_SPOT) {
+                        float cosAngle = dot(-L, normalize(light.direction));
+                        attenuation *= smoothstep(0.5, 0.9, cosAngle);
+                    }
+                }
+
+                float NoL = saturate(dot(N, L));
+                if (NoL <= 0.0 || attenuation <= 0.0) {
+                    continue;
+                }
+
                 ShadowPayload shadowPayload;
                 shadowPayload.isShadowed = true;
 
@@ -95,39 +115,31 @@ static const uint PIXEL_SAMPLES = 1;
                 shadowRay.Origin = payload.position + N * 0.001;
                 shadowRay.Direction = L;
                 shadowRay.TMin = 0.001;
-                shadowRay.TMax = 1000.0;
+                shadowRay.TMax = shadowMaxT;
 
                 uint shadowRayFlags = RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
-
-                // Miss index 1 = shadow miss
                 TraceRay(Scene, shadowRayFlags, 0xFF, 0, 0, 1, shadowRay, shadowPayload);
 
-                visibility = shadowPayload.isShadowed ? 0.0 : 1.0;
-            }
+                float visibility = shadowPayload.isShadowed ? 0.0 : 1.0;
 
-            float3 direct = EvaluateDirectLighting(N, V, L, payload.baseColor, payload.roughness, payload.metallic) * dirLight.color *
-                            dirLight.intensity * NoL * visibility;
+                direct += EvaluateDirectLighting(N, V, L, payload.baseColor, payload.roughness, payload.metallic) * light.color.rgb * light.color.a *
+                          NoL * visibility * attenuation;
+            }
 
             // Ambient
 
             float3 F0 = lerp(float3(0.04, 0.04, 0.04), payload.baseColor, payload.metallic);
             float3 F_env = FresnelSchlick(F0, NoV);
-
-            // Energy sent into the reflection isn't also counted as diffuse.
             float3 kD = (1.0 - F_env) * (1.0 - payload.metallic);
-            float3 ambient = kD * payload.baseColor / PI * ambientLight.color * ambientLight.intensity;
+            float3 ambient = kD * payload.baseColor / PI * AmbientLight.color.rgb * AmbientLight.color.a;
 
             radiance += throughput * (direct + ambient);
 
-            // Continue along the mirror direction
-
-            // Stopgap until GGX sampling: fade the mirror ray out as roughness rises.
             float rough = max(payload.roughness, MIN_ROUGHNESS);
             float fade = (1.0 - rough) * (1.0 - rough);
 
             throughput *= F_env * fade;
 
-            // Nothing left worth tracing.
             if (max(throughput.r, max(throughput.g, throughput.b)) < 0.01) {
                 pathEnded = true;
                 break;
@@ -137,8 +149,6 @@ static const uint PIXEL_SAMPLES = 1;
             ray.Direction = reflect(ray.Direction, N);
         }
 
-        // Ran out of bounces while still on a live path: fall back to the sky
-        // (same as the recursive version did) instead of dropping the energy.
         if (!pathEnded) {
             radiance += throughput * GetSkyColor(ray.Direction);
         }

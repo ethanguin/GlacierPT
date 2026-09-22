@@ -37,7 +37,7 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(uint32_t);
+    pushConstantRange.size = sizeof(RaygenPushConstants);
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

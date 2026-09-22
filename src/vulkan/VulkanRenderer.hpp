@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scene/Scene.hpp"
+#include "scene/Camera.hpp"
 #include "VulkanContext.hpp"
 #include "VulkanSwapchain.hpp"
 #include "VulkanCommands.hpp"
@@ -17,10 +18,15 @@
 
 class VulkanRenderer {
 public:
-    void initialize(GLFWwindow* window, const Scene& scene, uint32_t renderWidth, uint32_t renderHeight);
+    void initialize(GLFWwindow* window, const Scene& scene, const Camera& camera, uint32_t renderWidth, uint32_t renderHeight);
     void shutdown();
 
     void drawFrame();
+
+    void setCamera(const Camera& camera) {
+        m_camera = camera;
+        m_rayTracingResources.updateCamera(m_camera);
+    }
 
     void requestScreenshot(const std::string& filename) {
         m_screenshot.request(filename);
@@ -45,6 +51,8 @@ private:
 
     GLFWwindow* m_window = nullptr;
     VkExtent2D m_renderExtent{};
+    Camera m_camera;
+    uint32_t m_lightCount = 0;
 
     VulkanContext m_context;
     VulkanSwapchain m_swapchain;

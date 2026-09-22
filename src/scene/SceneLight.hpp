@@ -1,5 +1,5 @@
 #pragma once
-#include "GPULight.hpp"
+#include "GPUResources.hpp"
 
 class SceneLight {
 public:

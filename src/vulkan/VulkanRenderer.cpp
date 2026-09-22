@@ -1,9 +1,10 @@
 #include "VulkanRenderer.hpp"
 #include "Vertex.hpp"
 
-void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, uint32_t renderWidth, uint32_t renderHeight) {
+void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, const Camera& camera, uint32_t renderWidth, uint32_t renderHeight) {
     m_window = window;
-
+    m_camera = camera;
+    m_lightCount = static_cast<uint32_t>(scene.lights().size());
     m_context.initialize(window);
 
     int width;
@@ -28,7 +29,7 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, uint32_t
 
     createRayTracingImage();
 
-    m_rayTracingResources.initialize(m_context, m_accelerationStructure, scene, m_rayTracingImageView);
+    m_rayTracingResources.initialize(m_context, m_accelerationStructure, scene, m_camera, m_rayTracingImageView);
 
     PFN_vkCmdTraceRaysKHR m_vkCmdTraceRaysKHR = nullptr;
 
@@ -240,10 +241,12 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rayTracingPipeline.layout(), 0, 1, &descriptorSet, 0, nullptr);
 
-    // Push FrameIndex to the ray-generation shader.
-    uint32_t frameIndex = m_currentFrame;
+    // Push FrameIndex and light number to the ray-generation shader.
+    RaygenPushConstants pushConstants{};
+    pushConstants.frameIndex = m_currentFrame;
+    pushConstants.lightCount = m_lightCount;
 
-    vkCmdPushConstants(cmd, m_rayTracingPipeline.layout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(frameIndex), &frameIndex);
+    vkCmdPushConstants(cmd, m_rayTracingPipeline.layout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(pushConstants), &pushConstants);
 
     VkStridedDeviceAddressRegionKHR raygenRegion = m_rayTracingPipeline.raygenRegion();
 

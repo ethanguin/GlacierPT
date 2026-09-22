@@ -23,3 +23,19 @@ struct GPUAmbientLight {
     glm::vec4 color; // .rgb = color, .a = intensity
 };
 static_assert(sizeof(GPUAmbientLight) == 16);
+
+struct GPUCamera {
+    glm::vec3 position;
+    float focalLength;
+
+    glm::vec3 forward;
+    float sensorWidth;
+};
+static_assert(sizeof(GPUCamera) == 32);
+
+// explicit GPU sphere structure so it doesn't have to be connected to attributes for the scene sphere and add its own padding to map to HLSL
+struct GPUSphere {
+    glm::vec4 positionRadius;
+    glm::vec4 color;
+};
+static_assert(sizeof(GPUSphere) == 32);

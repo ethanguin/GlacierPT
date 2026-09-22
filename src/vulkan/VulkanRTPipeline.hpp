@@ -5,6 +5,11 @@
 
 #include <vulkan/vulkan.h>
 
+struct RaygenPushConstants {
+    uint32_t frameIndex;
+    uint32_t lightCount;
+};
+
 class VulkanRTPipeline {
 public:
     void initialize(VulkanContext& context, VulkanRTResources& resources);
