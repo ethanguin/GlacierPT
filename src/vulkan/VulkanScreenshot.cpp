@@ -116,7 +116,7 @@ void VulkanScreenshot::saveIfReady(uint32_t frameSlot) {
         return;
     }
 
-    writePPM();
+    writePNG();
 
     m_copyRecorded = false;
     m_filename.clear();
