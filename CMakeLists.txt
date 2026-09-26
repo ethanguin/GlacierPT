@@ -43,10 +43,16 @@ FetchContent_Declare(
     GIT_TAG 1.0.3
 )
 
+include(FetchContent)
+FetchContent_Declare(fastgltf
+    GIT_REPOSITORY https://github.com/spnda/fastgltf.git
+    GIT_TAG        v0.9.0)
+
 FetchContent_MakeAvailable(glfw)
 FetchContent_MakeAvailable(vk_bootstrap)
 FetchContent_MakeAvailable(vma)
 FetchContent_MakeAvailable(glm)
+FetchContent_MakeAvailable(fastgltf)
 
 set(STB_IMAGE_WRITE_DIR "${CMAKE_BINARY_DIR}/external/stb")
 set(STB_IMAGE_WRITE_HEADER "${STB_IMAGE_WRITE_DIR}/stb_image_write.h")
@@ -96,6 +102,7 @@ target_link_libraries(GlacierPT
         vk-bootstrap::vk-bootstrap
         GPUOpen::VulkanMemoryAllocator
         glm::glm
+        fastgltf::fastgltf
 )
 
 # SHADER COMPILATION

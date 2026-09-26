@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "SceneLight.hpp"
+#include "asset/Model.hpp"
 
 struct SceneSphere {
     glm::vec3 position;
@@ -35,9 +36,13 @@ public:
     const SceneAmbientLight& ambientLight() const {
         return m_ambLight;
     }
+    const asset::Model& geometry() const {
+        return m_geometry;
+    }
 
 private:
     std::vector<SceneSphere> m_spheres;
     std::vector<SceneLight> m_lights;
     SceneAmbientLight m_ambLight;
+    asset::Model m_geometry;
 };

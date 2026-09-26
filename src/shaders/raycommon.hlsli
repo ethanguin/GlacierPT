@@ -51,6 +51,29 @@ struct GPUCamera {
     float sensorWidth;
 };
 
+struct GPUVertex {
+    float3 position;
+    float u;
+    float3 normal;
+    float v;
+};
+
+struct GPUMaterial {
+    float4 baseColor;
+    float metallic;
+    float roughness;
+    float pad0;
+    float pad1;
+};
+
+struct GPUMesh {
+    uint firstVertex;
+    uint vertexCount;
+    uint firstIndex;
+    uint indexCount;
+    uint materialIndex;
+};
+
 #define LIGHT_TYPE_DIRECTIONAL 0
 #define LIGHT_TYPE_POINT 1
 #define LIGHT_TYPE_SPOT 2
@@ -82,6 +105,18 @@ ConstantBuffer<GPUAmbientLight> AmbientLight;
 
 [[vk::binding(5, 0)]]
 ConstantBuffer<GPUCamera> CameraData;
+
+[[vk::binding(6, 0)]]
+StructuredBuffer<GPUVertex> Vertices;
+
+[[vk::binding(7, 0)]]
+StructuredBuffer<uint> Indices;
+
+[[vk::binding(8, 0)]]
+StructuredBuffer<GPUMesh> Meshes;
+
+[[vk::binding(9, 0)]]
+StructuredBuffer<GPUMaterial> Materials;
 
 // Now that AmbientLight is declared, GetSkyColor can reference it.
 float3 GetSkyColor(float3 dir) {
