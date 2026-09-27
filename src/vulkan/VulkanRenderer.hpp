@@ -12,6 +12,7 @@
 #include "VulkanAccelerationStructure.hpp"
 #include "VulkanRTResources.hpp"
 #include "VulkanScreenshot.hpp"
+#include "VulkanGeo.hpp"
 
 #include <array>
 #include <vector>
@@ -53,6 +54,7 @@ private:
     VkExtent2D m_renderExtent{};
     Camera m_camera;
     uint32_t m_lightCount = 0;
+    VulkanGeometry m_geometry;
 
     VulkanContext m_context;
     VulkanSwapchain m_swapchain;

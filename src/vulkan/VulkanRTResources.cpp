@@ -2,8 +2,8 @@
 
 #include <stdexcept>
 
-void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStructure& accelerationStructure, const Scene& scene,
-                                   const Camera& camera, VkImageView outputImageView) {
+void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStructure& accelerationStructure, VulkanGeometry& geometry,
+                                   const Scene& scene, const Camera& camera, VkImageView outputImageView) {
     m_context = &context;
 
     VkDevice device = context.device();
@@ -93,11 +93,36 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     cameraBinding.descriptorCount = 1;
     cameraBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
-    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding, imageBinding, sphereBinding, lightBinding, ambientBinding, cameraBinding};
+    VkDescriptorSetLayoutBinding vertexBinding{};
+    vertexBinding.binding = 6;
+    vertexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vertexBinding.descriptorCount = 1;
+    vertexBinding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    VkDescriptorSetLayoutBinding indexBinding{};
+    indexBinding.binding = 7;
+    indexBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    indexBinding.descriptorCount = 1;
+    indexBinding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    VkDescriptorSetLayoutBinding meshBinding{};
+    meshBinding.binding = 8;
+    meshBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    meshBinding.descriptorCount = 1;
+    meshBinding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    VkDescriptorSetLayoutBinding materialBinding{};
+    materialBinding.binding = 9;
+    materialBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    materialBinding.descriptorCount = 1;
+    materialBinding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding,   imageBinding,  sphereBinding, lightBinding, ambientBinding,
+                                               cameraBinding, vertexBinding, indexBinding,  meshBinding,  materialBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 6;
+    layoutInfo.bindingCount = 10;
     layoutInfo.pBindings = bindings;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS) {
@@ -108,7 +133,7 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
 
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
                                         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-                                        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2},
+                                        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6}, // was 2
                                         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2}};
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -252,10 +277,49 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     cameraWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     cameraWrite.pBufferInfo = &cameraBufferInfo;
 
+    // mesh buffers w material
+
+    VkDescriptorBufferInfo vertexBufferInfo{.buffer = geometry.vertexBuffer(), .offset = 0, .range = VK_WHOLE_SIZE};
+    VkWriteDescriptorSet vertexWrite{};
+    vertexWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vertexWrite.dstSet = m_descriptorSet;
+    vertexWrite.dstBinding = 6;
+    vertexWrite.descriptorCount = 1;
+    vertexWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vertexWrite.pBufferInfo = &vertexBufferInfo;
+
+    VkDescriptorBufferInfo indexBufferInfo{.buffer = geometry.indexBuffer(), .offset = 0, .range = VK_WHOLE_SIZE};
+    VkWriteDescriptorSet indexWrite{};
+    indexWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    indexWrite.dstSet = m_descriptorSet;
+    indexWrite.dstBinding = 7;
+    indexWrite.descriptorCount = 1;
+    indexWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    indexWrite.pBufferInfo = &indexBufferInfo;
+
+    VkDescriptorBufferInfo meshBufferInfo{.buffer = geometry.meshBuffer(), .offset = 0, .range = VK_WHOLE_SIZE};
+    VkWriteDescriptorSet meshWrite{};
+    meshWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    meshWrite.dstSet = m_descriptorSet;
+    meshWrite.dstBinding = 8;
+    meshWrite.descriptorCount = 1;
+    meshWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    meshWrite.pBufferInfo = &meshBufferInfo;
+
+    VkDescriptorBufferInfo materialBufferInfo{.buffer = geometry.materialBuffer(), .offset = 0, .range = VK_WHOLE_SIZE};
+    VkWriteDescriptorSet materialWrite{};
+    materialWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    materialWrite.dstSet = m_descriptorSet;
+    materialWrite.dstBinding = 9;
+    materialWrite.descriptorCount = 1;
+    materialWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    materialWrite.pBufferInfo = &materialBufferInfo;
+
     // Write descriptors
 
-    VkWriteDescriptorSet writes[] = {tlasWrite, imageWrite, sphereWrite, lightWrite, ambientWrite, cameraWrite};
-    vkUpdateDescriptorSets(device, 6, writes, 0, nullptr);
+    VkWriteDescriptorSet writes[] = {tlasWrite,   imageWrite,  sphereWrite, lightWrite, ambientWrite,
+                                     cameraWrite, vertexWrite, indexWrite,  meshWrite,  materialWrite};
+    vkUpdateDescriptorSets(device, 10, writes, 0, nullptr);
 }
 
 void VulkanRTResources::shutdown() {

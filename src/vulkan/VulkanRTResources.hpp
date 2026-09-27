@@ -5,11 +5,12 @@
 #include <vulkan/vulkan.h>
 #include "VulkanContext.hpp"
 #include "VulkanAccelerationStructure.hpp"
+#include "VulkanGeo.hpp"
 
 class VulkanRTResources {
 public:
-    void initialize(VulkanContext& context, VulkanAccelerationStructure& accelerationStructure, const Scene& scene, const Camera& camera,
-                    VkImageView outputImageView);
+    void initialize(VulkanContext& context, VulkanAccelerationStructure& accelerationStructure, VulkanGeometry& geometry, const Scene& scene,
+                    const Camera& camera, VkImageView outputImageView);
 
     void shutdown();
 

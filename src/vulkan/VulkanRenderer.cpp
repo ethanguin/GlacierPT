@@ -23,13 +23,15 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, const Ca
 
     m_accelerationStructure.initialize(m_context, m_commands);
 
-    m_accelerationStructure.buildBLAS(scene);
+    m_geometry.initialize(m_context, m_commands, scene.geometry());
 
+    m_accelerationStructure.buildBLAS(scene);
+    m_accelerationStructure.buildMeshBLAS(scene.geometry(), m_geometry);
     m_accelerationStructure.buildTLAS(scene);
 
     createRayTracingImage();
 
-    m_rayTracingResources.initialize(m_context, m_accelerationStructure, scene, m_camera, m_rayTracingImageView);
+    m_rayTracingResources.initialize(m_context, m_accelerationStructure, m_geometry, scene, m_camera, m_rayTracingImageView);
 
     PFN_vkCmdTraceRaysKHR m_vkCmdTraceRaysKHR = nullptr;
 
@@ -68,6 +70,8 @@ void VulkanRenderer::shutdown() {
     m_rayTracingResources.shutdown();
 
     m_accelerationStructure.shutdown();
+
+    m_geometry.shutdown();
 
     destroyRayTracingImage();
 

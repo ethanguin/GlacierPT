@@ -84,7 +84,13 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
     closestHitStage.module = m_closestHitShader;
     closestHitStage.pName = "ClosestHit";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = {raygenStage, missStage, missShadowStage, intersectionStage, closestHitStage};
+    VkPipelineShaderStageCreateInfo meshHitStage{};
+    meshHitStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    meshHitStage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    meshHitStage.module = m_closestHitShader;
+    meshHitStage.pName = "ClosestHitMesh";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {raygenStage, missStage, missShadowStage, intersectionStage, closestHitStage, meshHitStage};
 
     // RAYGEN
 
@@ -126,7 +132,17 @@ void VulkanRTPipeline::initialize(VulkanContext& context, VulkanRTResources& res
     hitGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
     hitGroup.intersectionShader = 3;
 
-    VkRayTracingShaderGroupCreateInfoKHR shaderGroups[] = {raygenGroup, missGroup, missShadowGroup, hitGroup};
+    // HIT TRIANGLES
+
+    VkRayTracingShaderGroupCreateInfoKHR meshHitGroup{};
+    meshHitGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+    meshHitGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+    meshHitGroup.generalShader = VK_SHADER_UNUSED_KHR;
+    meshHitGroup.closestHitShader = 5; // index of meshHitStage in shaderStages
+    meshHitGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
+    meshHitGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+
+    VkRayTracingShaderGroupCreateInfoKHR shaderGroups[] = {raygenGroup, missGroup, missShadowGroup, hitGroup, meshHitGroup};
 
     // 0 = RayGen
     // 1 = Miss
@@ -278,8 +294,8 @@ void VulkanRTPipeline::createShaderBindingTable() {
 
     // One record in each region, so size == stride
     const VkDeviceSize raygenSize = raygenStride;
-    const VkDeviceSize missSize = missStride * 2; // multiply by 1) miss shader 2) shadow miss shader
-    const VkDeviceSize hitSize = hitStride;
+    const VkDeviceSize missSize = missStride * 2; // multiply by 2, 1) miss shader 2) shadow miss shader
+    const VkDeviceSize hitSize = hitStride * 2;   // multiply by 2, 1) sphere hit 2) mesh trianble hit
 
     // Each region must start on shaderGroupBaseAlignment
     const VkDeviceSize raygenOffset = 0;
@@ -291,7 +307,7 @@ void VulkanRTPipeline::createShaderBindingTable() {
     const VkDeviceSize totalSize = hitOffset + hitSize;
 
     // Get shader group handles
-    const unsigned int shaderGroupAmt = 4;
+    const unsigned int shaderGroupAmt = 5;
     std::vector<uint8_t> handles(handleSize * shaderGroupAmt);
 
     VkResult result = m_vkGetRayTracingShaderGroupHandlesKHR(m_context->device(), m_pipeline, 0, shaderGroupAmt, handles.size(), handles.data());
@@ -310,7 +326,8 @@ void VulkanRTPipeline::createShaderBindingTable() {
     std::memcpy(raygenData, handles.data() + handleSize * 0, handleSize);
     std::memcpy(missData, handles.data() + handleSize * 1, handleSize);
     std::memcpy(missData + missStride, handles.data() + handleSize * 2, handleSize);
-    std::memcpy(hitData, handles.data() + handleSize * 3, handleSize);
+    std::memcpy(hitData, handles.data() + handleSize * 3, handleSize);             // sphere hit
+    std::memcpy(hitData + hitStride, handles.data() + handleSize * 4, handleSize); // mesh hit
 
     // Create SBT buffer
     m_shaderBindingTable = m_context->allocator().createBuffer(

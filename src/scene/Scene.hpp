@@ -2,9 +2,11 @@
 
 #include <glm/glm.hpp>
 #include <vector>
+#include <filesystem>
 
 #include "SceneLight.hpp"
 #include "asset/Model.hpp"
+#include "asset/GltfLoader.hpp"
 
 struct SceneSphere {
     glm::vec3 position;
@@ -25,6 +27,9 @@ public:
     }
     void setAmbLight(glm::vec3 color, float intensity) {
         m_ambLight = SceneAmbientLight(color, intensity);
+    }
+    void loadModel(const std::filesystem::path& path) {
+        asset::loadGltf(path, m_geometry);
     }
 
     const std::vector<SceneSphere>& spheres() const {
