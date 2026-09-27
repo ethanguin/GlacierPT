@@ -146,6 +146,57 @@ float3 FresnelSchlick(float3 F0, float cosTheta) {
     return F0 + (1.0 - F0) * pow(1.0 - saturate(cosTheta), 5.0);
 }
 
+// SAMPLING
+
+// built orthonormal basis
+void BuildONB(float3 n, out float3 t, out float3 b) {
+    float sign = n.z >= 0.0 ? 1.0 : -1.0;
+    float a = -1.0 / (sign + n.z);
+    float c = n.x * n.y * a;
+    t = float3(1.0 + sign * n.x * n.x * a, sign * c, -sign * n.x);
+    b = float3(c, sign + n.y * n.y * a, -n.y);
+}
+
+float3 SampleCosineHemisphere(float2 u) {
+    float r = sqrt(u.x);
+    float phi = 2.0 * PI * u.y;
+    float z = sqrt(max(0.0, 1.0 - u.x));
+    return float3(r * cos(phi), r * sin(phi), z);
+}
+
+// sample the GGX based on visible normals. formula comes from Heitz
+float3 SampleGGXVNDF(float3 Ve, float alpha, float2 u) {
+    float3 Vh = normalize(float3(alpha * Ve.x, alpha * Ve.y, Ve.z));
+
+    float lensq = Vh.x * Vh.x + Vh.y * Vh.y;
+    float3 T1 = lensq > 0.0 ? float3(-Vh.y, Vh.x, 0.0) * rsqrt(lensq) : float3(1.0, 0.0, 0.0);
+    float3 T2 = cross(Vh, T1);
+
+    float r = sqrt(u.x);
+    float phi = 2.0 * PI * u.y;
+    float t1 = r * cos(phi);
+    float t2 = r * sin(phi);
+    float s = 0.5 * (1.0 + Vh.z);
+    t2 = (1.0 - s) * sqrt(1.0 - t1 * t1) + s * t2;
+
+    float3 Nh = t1 * T1 + t2 * T2 + sqrt(max(0.0, 1.0 - t1 * t1 - t2 * t2)) * Vh;
+
+    return normalize(float3(alpha * Nh.x, alpha * Nh.y, max(0.0, Nh.z)));
+}
+
+// Smith GGX masking
+float SmithG1GGX(float NoV, float alpha) {
+    float alpha2 = alpha * alpha;
+    return 2.0 * NoV / (NoV + sqrt(alpha2 + (1.0 - alpha2) * NoV * NoV));
+}
+
+float SmithG2GGX(float NoV, float NoL, float alpha) {
+    float alpha2 = alpha * alpha;
+    float lambdaV = NoL * sqrt(alpha2 + (1.0 - alpha2) * NoV * NoV);
+    float lambdaL = NoV * sqrt(alpha2 + (1.0 - alpha2) * NoL * NoL);
+    return 2.0 * NoV * NoL / (lambdaV + lambdaL);
+}
+
 // Cook-Torrance BRDF lighting model
 float3 EvaluateDirectLighting(float3 N, float3 V, float3 L, float3 baseColor, float roughness, float metallic) {
     float NoL = saturate(dot(N, L));
@@ -156,7 +207,6 @@ float3 EvaluateDirectLighting(float3 N, float3 V, float3 L, float3 baseColor, fl
     }
 
     roughness = max(roughness, MIN_ROUGHNESS);
-    roughness = min(roughness, MAX_ROUGHNESS);
 
     float3 H = normalize(V + L);
 

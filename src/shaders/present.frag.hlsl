@@ -1,18 +1,7 @@
-// Presentation pass fragment shader.
-//
-// Samples the linear HDR ray-traced image and applies FXAA 3.11 (Quality).
-// The swapchain is *_SRGB, so this shader outputs LINEAR color and the
-// hardware performs the sRGB encode on write (same as before).
-//
-// FXAA design notes for this renderer:
-//   * Edge DETECTION is done on perceptual luma: luma(sRGB(ToLDR(color))).
-//   * The final BLEND is the hardware bilinear filter on the linear data,
-//     i.e. gamma-correct coverage blending.
-//   * ToLDR() is where a tonemapper goes once you have one.
+// Presentation pass fragment shader with FXAA
 
 #define FXAA_ENABLED 1
 
-// ---- Tunables -------------------------------------------------------------
 // Absolute luma contrast below which a pixel is never touched (dark areas).
 //   0.0833 = fast, 0.0625 = default, 0.0312 = high quality
 static const float FXAA_EDGE_THRESHOLD_MIN = 0.0312;
@@ -31,7 +20,6 @@ static const int FXAA_ITERATIONS = 12;
 // Multiplier for the bilinear sample
 static const float FXAA_EDGE_BLUR = 1;
 
-// ---- Bindings -------------------------------------------------------------
 [[vk::binding(0, 0)]]
 Texture2D<float4> InputTexture;
 
@@ -42,8 +30,6 @@ struct VertexOutput {
     float4 position : SV_Position;
     float2 uv : TEXCOORD0;
 };
-
-// ---- Helpers --------------------------------------------------------------
 
 // Placeholder "tonemap": clamp. Replace with a real tonemapper later.
 float3 ToLDR(float3 hdr) {
@@ -230,16 +216,26 @@ float3 FXAA(float2 uv, float2 texel) {
     return ToLDR(SampleLinear(finalUv));
 }
 
+float InterleavedGradientNoise(float2 pixel) {
+    float3 magic = float3(0.06711056, 0.00583715, 52.9829189);
+    return frac(magic.z * frac(dot(pixel, magic.xy)));
+}
+
 // ---- Entry point ----------------------------------------------------------
 float4 PSMain(VertexOutput input) : SV_Target {
+    float3 color;
 #if FXAA_ENABLED
     uint width, height;
     InputTexture.GetDimensions(width, height);
-
     float2 texel = 1.0 / float2(width, height);
-
-    return float4(FXAA(input.uv, texel), 1.0);
+    color = FXAA(input.uv, texel);
 #else
-    return InputTexture.SampleLevel(InputSampler, input.uv, 0);
+    color = InputTexture.SampleLevel(InputSampler, input.uv, 0).rgb;
 #endif
+
+    // Dither: ±0.5 LSB of an 8-bit channel, in linear space before hardware sRGB encode.
+    float noise = InterleavedGradientNoise(input.position.xy) - 0.5;
+    color += noise / 255.0;
+
+    return float4(color, 1.0);
 }

@@ -62,7 +62,7 @@ int main() {
     // Create Scene description
 
     Scene scene;
-    // // bright spheres clumped in center of screen
+    // bright spheres clumped in center of screen
     // scene.addSphere({-12.0f, 5.0f, -28.0f}, 6.0f, srgbToLinear({0.08f, 0.25f, 0.75f}));
     // scene.addSphere({0.0f, -1.0f, -34.0f}, 8.0f, srgbToLinear({0.75f, 0.10f, 0.08f}));
     // scene.addSphere({13.0f, 4.0f, -30.0f}, 5.5f, srgbToLinear({0.10f, 0.65f, 0.35f}));
@@ -80,14 +80,16 @@ int main() {
     // scene.addSphere({7.0f, -7.0f, -15.0f}, 1.0f, srgbToLinear({0.95f, 0.15f, 0.10f}));
     // scene.addSphere({12.0f, 8.0f, -20.0f}, 1.3f, srgbToLinear({0.70f, 0.20f, 0.95f}));
 
-    // scene.setAmbLight({0.05f, 0.75f, 1.0f}, 0.3f);
+    scene.setAmbLight({0.05f, 0.75f, 1.0f}, 0.15f);
     // scene.addLight(SceneLight::Directional({1.0f, -1.0f, -1.0f}, {0.5f, 0.6f, 0.2f}, 3.0f));
-    // scene.addLight(SceneLight::Point({10.0f, 20.0f, -22.0f}, {1.0f, 0.0f, 0.0f}, 0.3f, 50.0f));
+    glm::vec3 position = {-10.0f, 17.0f, 0.0f};
+    scene.addLight(SceneLight::Point(position, {1.0f, 1.0f, 1.0f}, 0.9f, 50.0f));
+    // scene.addSphere(position, 1.3f, srgbToLinear({0.70f, 0.20f, 0.95f}));
     // scene.addLight(SceneLight::Point({0.0f, -15.0f, -18.0f}, {1.0f, 1.0f, 0.0f}, 0.2f, 40.0f));
 
     // gltf import test
 
-    Camera camera({0.0f, 0.0f, 60.0f}, {0.0f, 0.0f, -1.0f}, 50.0f, 36.0f);
+    Camera camera({-10.0f, 10.0f, 70.0f}, {0.0f, 0.0f, -1.0f}, 50.0f, 36.0f);
 
     CameraController cameraController;
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);

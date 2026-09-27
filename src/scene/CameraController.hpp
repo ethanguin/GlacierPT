@@ -15,7 +15,7 @@ public:
 private:
     static constexpr int GAMEPAD = GLFW_JOYSTICK_1;
 
-    float m_sensitivity = 0.08f;
+    float m_sensitivity = 0.11f;
     float m_gamepadSensitivity = 120.0f;
 
     float m_deadzone = 0.15f;
