@@ -1,4 +1,4 @@
-#include "raycommon.hlsli"
+#include "../src/shaders/raycommon.hlsli"
 
 static const uint PIXEL_SAMPLES = 200;
 static const uint SECONDARY_SAMPLES = 200;

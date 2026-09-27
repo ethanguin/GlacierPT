@@ -87,6 +87,8 @@ int main() {
     // scene.addSphere(position, 1.3f, srgbToLinear({0.70f, 0.20f, 0.95f}));
     // scene.addLight(SceneLight::Point({0.0f, -15.0f, -18.0f}, {1.0f, 1.0f, 0.0f}, 0.2f, 40.0f));
 
+    scene.addSphere({-9.43, 6.05, 4.9}, 3.0, {0.2, 0.1, 0.9});
+
     // gltf import test
 
     Camera camera({-10.0f, 10.0f, 70.0f}, {0.0f, 0.0f, -1.0f}, 50.0f, 36.0f);
@@ -102,7 +104,7 @@ int main() {
 
     try {
         std::cout << "CWD: " << std::filesystem::current_path() << '\n';
-        scene.loadModel("../../../TestScenes/CornellBox.glb");
+        scene.loadModel("../../../TestScenes/CornellBox-new.glb");
         VulkanRenderer renderer;
 
         renderer.initialize(window, scene, camera, renderWidth, renderHeight);
