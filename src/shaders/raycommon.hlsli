@@ -3,7 +3,11 @@
 
 static const float PI = 3.14159265;
 
-static const uint MAX_BOUNCES = 4;
+static const uint  MAX_BOUNCES         = 8;   // glass needs more depth (enter + exit + reflections)
+static const uint  RAY_STACK_SIZE      = MAX_BOUNCES + 2;
+static const uint  MAX_RAYS_PER_SAMPLE = 32;  // hard cap on tree size per pixel sample
+static const float MIN_THROUGHPUT      = 0.01;
+static const float ABSORPTION_SCALE    = 0.5; // tint strength per world unit of glass
 
 // Below this, GGX gets numerically unstable (D spikes, denom cancels to 0).
 static const float MIN_ROUGHNESS = 0.08;
@@ -17,7 +21,9 @@ struct RayPayload {
     float3 baseColor;
     float roughness;
     float metallic;
-    float hitT; // < 0 means the ray missed
+    float transmission; // 0 = opaque, 1 = fully transmissive
+    float ior;
+    float hitT;
 };
 
 struct ShadowPayload {
@@ -62,8 +68,8 @@ struct GPUMaterial {
     float4 baseColor;
     float metallic;
     float roughness;
-    float pad0;
-    float pad1;
+    float transmission;
+    float ior;
 };
 
 struct GPUMesh {
@@ -144,6 +150,17 @@ float2 Random2(inout uint state) {
 
 float3 FresnelSchlick(float3 F0, float cosTheta) {
     return F0 + (1.0 - F0) * pow(1.0 - saturate(cosTheta), 5.0);
+}
+
+// Unpolarized dielectric Fresnel. Returns 1.0 on total internal reflection.
+float FresnelDielectric(float cosI, float etaI, float etaT) {
+    cosI = saturate(cosI);
+    float sinT2 = (etaI / etaT) * (etaI / etaT) * (1.0 - cosI * cosI);
+    if (sinT2 >= 1.0) return 1.0;
+    float cosT = sqrt(1.0 - sinT2);
+    float rs = (etaI * cosI - etaT * cosT) / (etaI * cosI + etaT * cosT);
+    float rp = (etaI * cosT - etaT * cosI) / (etaI * cosT + etaT * cosI);
+    return 0.5 * (rs * rs + rp * rp);
 }
 
 // SAMPLING

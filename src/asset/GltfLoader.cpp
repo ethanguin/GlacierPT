@@ -29,8 +29,7 @@ struct LoadContext {
 
 // Primitive::attributes changed from std::pair<name, index> to a struct with
 // .accessorIndex between fastgltf releases; this keeps the loader working on both.
-template <typename Attribute>
-size_t accessorIndexOf(const Attribute& attribute) {
+template <typename Attribute> size_t accessorIndexOf(const Attribute& attribute) {
     if constexpr (requires { attribute.accessorIndex; }) {
         return attribute.accessorIndex;
     } else {
@@ -193,7 +192,7 @@ void loadGltf(const std::filesystem::path& path, Model& model) {
         throw std::runtime_error("Failed to read glTF file '" + path.string() + "': " + std::string(fastgltf::getErrorMessage(data.error())));
     }
 
-    fastgltf::Parser parser;
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_transmission | fastgltf::Extensions::KHR_materials_ior);
 
     // LoadExternalBuffers is needed for .gltf + .bin; images are intentionally not loaded yet.
     auto gltfAsset = parser.loadGltf(data.get(), path.parent_path(), fastgltf::Options::LoadExternalBuffers);
@@ -210,6 +209,8 @@ void loadGltf(const std::filesystem::path& path, Model& model) {
     fallback.baseColor = {0.8f, 0.8f, 0.8f, 1.0f};
     fallback.metallic = 0.0f;
     fallback.roughness = 0.5f;
+    fallback.transmission = 0.0f;
+    fallback.ior = 1.5f;
 
     ctx.defaultMaterial = model.addMaterial(fallback);
     ctx.materialBase = model.materialCount();
@@ -221,6 +222,8 @@ void loadGltf(const std::filesystem::path& path, Model& model) {
         material.baseColor = {pbr.baseColorFactor[0], pbr.baseColorFactor[1], pbr.baseColorFactor[2], pbr.baseColorFactor[3]};
         material.metallic = pbr.metallicFactor;
         material.roughness = pbr.roughnessFactor;
+        material.ior = std::max(gltfMaterial.ior, 1.0f);
+        material.transmission = gltfMaterial.transmission ? gltfMaterial.transmission->transmissionFactor : 0.0f;
 
         model.addMaterial(material);
     }

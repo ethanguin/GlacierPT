@@ -34,8 +34,8 @@ struct Material {
     glm::vec4 baseColor; // linear
     float metallic;
     float roughness;
-    float pad0;
-    float pad1;
+    float transmission; // KHR_materials_transmission
+    float ior;          // KHR_materials_ior
 };
 static_assert(sizeof(Material) == 32);
 

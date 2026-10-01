@@ -17,6 +17,8 @@ struct HitAttributes {
     payload.baseColor = sphere.color.xyz;
     payload.roughness = Random(seed);
     payload.metallic = 0.0f;
+    payload.transmission = 1.0;
+    payload.ior = 1.33;
 };
 
 [shader("closesthit")] void ClosestHitMesh(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs) {
@@ -50,4 +52,6 @@ struct HitAttributes {
     payload.baseColor = material.baseColor.rgb;
     payload.roughness = material.roughness;
     payload.metallic = material.metallic;
+    payload.transmission = material.transmission;
+    payload.ior = material.ior;
 }
