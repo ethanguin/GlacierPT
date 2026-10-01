@@ -18,7 +18,7 @@ struct HitAttributes {
     payload.roughness = Random(seed);
     payload.metallic = 0.0f;
     payload.transmission = 1.0;
-    payload.ior = 1.33;
+    payload.ior = 1.5;
 };
 
 [shader("closesthit")] void ClosestHitMesh(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs) {
