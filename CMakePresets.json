@@ -37,7 +37,71 @@
                 "CMAKE_CXX_COMPILER": "g++",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
+        },
+
+        {
+        "name": "lab-debug",
+        "displayName": "Lab - GCC Debug",
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/build/lab-debug",
+        "environment": {
+            "VULKAN_SDK": "/users/student/t/the8jedi/VulkanSDK/1.4.363.0/x86_64",
+            "PATH": "/users/student/t/the8jedi/VulkanSDK/1.4.363.0/x86_64/bin:/users/student/t/the8jedi/bin:$penv{PATH}",
+            "CPATH": "/users/student/t/the8jedi/.local/usr/include",
+            "LIBRARY_PATH": "/users/student/t/the8jedi/.local/usr/lib:$penv{LIBRARY_PATH}"
+        },
+        "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug",
+            "CMAKE_C_COMPILER": "gcc",
+            "CMAKE_CXX_COMPILER": "g++",
+            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+
+            "CMAKE_PREFIX_PATH": "/users/student/t/the8jedi/.local/usr",
+
+            "Vulkan_INCLUDE_DIR": "/users/student/t/the8jedi/VulkanSDK/1.4.363.0/x86_64/include",
+            "Vulkan_LIBRARY": "/users/student/t/the8jedi/VulkanSDK/1.4.363.0/x86_64/lib/VulkanLoader/lib/libvulkan.so",
+
+            "GLFW_BUILD_WAYLAND": "OFF",
+
+            "X11_X11_INCLUDE_PATH": "/usr/include",
+            "X11_Xrandr_INCLUDE_PATH": "/users/student/t/the8jedi/.local/usr/include",
+            "X11_Xinerama_INCLUDE_PATH": "/users/student/t/the8jedi/.local/usr/include",
+            "X11_Xkb_INCLUDE_PATH": "/usr/include",
+            "X11_Xcursor_INCLUDE_PATH": "/users/student/t/the8jedi/.local/usr/include"
         }
+    },
+
+    {
+        "name": "lab-release",
+        "displayName": "Lab - GCC Release",
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/build/lab-release",
+        "environment": {
+            "VULKAN_SDK": "/users/student/t/the8jedi/VulkanSDK/1.4.363.0/x86_64",
+            "PATH": "/users/student/t/the8jedi/VulkanSDK/1.4.363.0/x86_64/bin:/users/student/t/the8jedi/bin:$penv{PATH}",
+            "CPATH": "/users/student/t/the8jedi/.local/usr/include",
+            "LIBRARY_PATH": "/users/student/t/the8jedi/.local/usr/lib:$penv{LIBRARY_PATH}"
+        },
+        "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "CMAKE_C_COMPILER": "gcc",
+            "CMAKE_CXX_COMPILER": "g++",
+            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+
+            "CMAKE_PREFIX_PATH": "/users/student/t/the8jedi/.local/usr",
+
+            "Vulkan_INCLUDE_DIR": "/users/student/t/the8jedi/VulkanSDK/1.4.363.0/x86_64/include",
+            "Vulkan_LIBRARY": "/users/student/t/the8jedi/VulkanSDK/1.4.363.0/x86_64/lib/VulkanLoader/lib/libvulkan.so",
+
+            "GLFW_BUILD_WAYLAND": "OFF",
+
+            "X11_X11_INCLUDE_PATH": "/usr/include",
+            "X11_Xrandr_INCLUDE_PATH": "/users/student/t/the8jedi/.local/usr/include",
+            "X11_Xinerama_INCLUDE_PATH": "/users/student/t/the8jedi/.local/usr/include",
+            "X11_Xkb_INCLUDE_PATH": "/usr/include",
+            "X11_Xcursor_INCLUDE_PATH": "/users/student/t/the8jedi/.local/usr/include"
+        }
+    }
     ],
 
     "buildPresets": [
@@ -65,6 +129,18 @@
             "name": "linux-release",
             "displayName": "Linux Release",
             "configurePreset": "linux-release"
+        },
+
+        {
+            "name": "lab-debug",
+            "displayName": "Lab Debug",
+            "configurePreset": "lab-debug"
+        },
+
+        {
+            "name": "lab-release",
+            "displayName": "Lab Release",
+            "configurePreset": "lab-release"
         }
     ]
 }
