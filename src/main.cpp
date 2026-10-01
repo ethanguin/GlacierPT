@@ -104,7 +104,7 @@ int main() {
 
     try {
         std::cout << "CWD: " << std::filesystem::current_path() << '\n';
-        scene.loadModel("../../../TestScenes/CornellBox-new.glb");
+        scene.loadModel("../../../PathTracerTestScenes/CornellBox-new.glb");
         VulkanRenderer renderer;
 
         renderer.initialize(window, scene, camera, renderWidth, renderHeight);
