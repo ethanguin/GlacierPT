@@ -5,7 +5,7 @@ static const float PI = 3.14159265;
 
 static const uint  MAX_BOUNCES         = 8;   // glass needs more depth (enter + exit + reflections)
 static const uint  RAY_STACK_SIZE      = MAX_BOUNCES + 2;
-static const uint  MAX_RAYS_PER_SAMPLE = 32;  // hard cap on tree size per pixel sample
+static const uint  MAX_RAYS_PER_SAMPLE = 64;  // hard cap on tree size per pixel sample
 static const float MIN_THROUGHPUT      = 0.01;
 static const float ABSORPTION_SCALE    = 0.5; // tint strength per world unit of glass
 

@@ -221,6 +221,12 @@ float InterleavedGradientNoise(float2 pixel) {
     return frac(magic.z * frac(dot(pixel, magic.xy)));
 }
 
+float3 SRGBToLinear(float3 c) {
+    float3 lo = c / 12.92;
+    float3 hi = pow((c + 0.055) / 1.055, 2.4);
+    return lerp(lo, hi, step(0.04045, c));
+}
+
 // ---- Entry point ----------------------------------------------------------
 float4 PSMain(VertexOutput input) : SV_Target {
     float3 color;
@@ -234,8 +240,9 @@ float4 PSMain(VertexOutput input) : SV_Target {
 #endif
 
     // Dither: ±0.5 LSB of an 8-bit channel, in linear space before hardware sRGB encode.
-    float noise = InterleavedGradientNoise(input.position.xy) - 0.5;
-    color += noise / 255.0;
+    float3 srgb = LinearToSRGB(saturate(color));
+    srgb += (InterleavedGradientNoise(input.position.xy) - 0.5) / 255.0;
+    color = SRGBToLinear(srgb);
 
     return float4(color, 1.0);
 }

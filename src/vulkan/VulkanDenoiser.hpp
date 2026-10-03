@@ -14,7 +14,7 @@
 // After record(), the filtered result is back in image A (kPasses is even).
 class VulkanDenoiser {
 public:
-    static constexpr int kPasses = 4; // step sizes 1,2,4,8 ; MUST be even
+    static constexpr int kPasses = 2; // step sizes 1,2,4,8 ; MUST be even
     static_assert(kPasses % 2 == 0, "Result must end in the original radiance image.");
 
     void initialize(VulkanContext& context, VulkanCommands& commands, VkExtent2D extent, VkImageView radianceView);
