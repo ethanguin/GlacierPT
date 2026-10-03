@@ -12,15 +12,16 @@ struct SceneSphere {
     glm::vec3 position;
     float radius;
     glm::vec3 color;
+    float roughness; // 0 = mirror/clear glass, 1 = fully diffuse-ish lobe
 };
 
 class Scene {
 public:
-    void addSphere(const glm::vec3& pos, const float rad, const glm::vec3& color) {
-        m_spheres.push_back({pos, rad, color});
+    void addSphere(const glm::vec3& pos, const float rad, const glm::vec3& color, const float roughness = 0.0f) {
+        m_spheres.push_back({pos, rad, color, glm::clamp(roughness, 0.0f, 1.0f)});
     }
     void addSphere(const glm::vec3& pos, const float rad) {
-        m_spheres.push_back({pos, rad, {0.2f, 0.2f, 0.2f}});
+        m_spheres.push_back({pos, rad, {0.2f, 0.2f, 0.2f}, 0.0f});
     }
     void addLight(const SceneLight& light) {
         m_lights.push_back(light);

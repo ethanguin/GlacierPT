@@ -35,7 +35,7 @@ static_assert(sizeof(GPUCamera) == 32);
 
 // explicit GPU sphere structure so it doesn't have to be connected to attributes for the scene sphere and add its own padding to map to HLSL
 struct GPUSphere {
-    glm::vec4 positionRadius;
-    glm::vec4 color;
+    glm::vec4 positionRadius; // .xyz = center, .w = radius
+    glm::vec4 color;          // .rgb = color, .a = roughness
 };
 static_assert(sizeof(GPUSphere) == 32);

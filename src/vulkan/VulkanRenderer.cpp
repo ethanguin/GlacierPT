@@ -100,8 +100,10 @@ void VulkanRenderer::drawFrame() {
         return;
     }
 
-    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        throw std::runtime_error("Failed to acquire swapchain image.");
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        recreateSwapchain();
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        throw std::runtime_error("Failed to present swapchain image.");
     }
 
     vkResetFences(device, 1, &frame.renderFence);

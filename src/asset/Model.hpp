@@ -7,19 +7,6 @@
 #include <stdexcept>
 #include <vector>
 
-// -----------------------------------------------------------------------------
-// asset::Model is the interchange format: a renderer-agnostic in-memory
-// representation of triangle geometry, produced by a loader (GltfLoader today,
-// a future BinaryLoader later) and consumed by a renderer (VulkanGeometry today,
-// possibly others later). Nothing in this file knows about Vulkan, HLSL, or any
-// specific backend's shader bindings.
-//
-// Every struct here is a plain, tightly packed POD with no pointers, so a whole
-// array can be memcpy'd wholesale -- into a GPU buffer, into a file, wherever.
-// That packing is a convenience, not a promise to match any particular shader's
-// binding layout; a backend that needs a different layout converts on upload.
-// -----------------------------------------------------------------------------
-
 namespace asset {
 
 struct Vertex {

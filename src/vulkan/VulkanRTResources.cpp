@@ -14,7 +14,7 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     std::vector<GPUSphere> gpuSpheres;
 
     for (const SceneSphere& sphere : scene.spheres()) {
-        gpuSpheres.push_back({{sphere.position, sphere.radius}, {sphere.color, 1.0f}});
+        gpuSpheres.push_back({{sphere.position, sphere.radius}, {sphere.color, sphere.roughness}});
     }
 
     // Always create the buffer, even if empty, so the descriptor is never null.
