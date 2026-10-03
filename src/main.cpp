@@ -8,6 +8,8 @@
 #include <random>
 #include <cmath>
 #include <cstdlib>
+#include <string>
+#include <cstring>
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -19,9 +21,40 @@
 #include "utils/Color.hpp"
 #include "scene/CameraController.hpp"
 
-int main() {
-    uint32_t renderWidth = 1920;
-    uint32_t renderHeight = 1080;
+namespace {
+
+void printUsage(const char* exe) {
+    std::cerr << "Usage: " << exe << " [-s <scene.glb|scene.gltf>]\n"
+              << "  -s, --scene <path>   Scene file to render\n"
+              << "  -h, --help           Show this message\n";
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    std::string scenePath = "../../../PathTracerTestScenes/GlassWall.glb"; // default
+
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+
+        if (arg == "-s" || arg == "--scene") {
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for " << arg << "\n";
+                printUsage(argv[0]);
+                return 1;
+            }
+            scenePath = argv[++i];
+        } else if (arg == "-h" || arg == "--help") {
+            printUsage(argv[0]);
+            return 0;
+        } else {
+            std::cerr << "Unknown argument: " << arg << "\n";
+            printUsage(argv[0]);
+            return 1;
+        }
+    }
+    uint32_t renderWidth = 2560;
+    uint32_t renderHeight = 1440;
     std::cout << "Starting GlacierPT...\n";
 
     // Create GLFW window
@@ -104,7 +137,7 @@ int main() {
 
     try {
         std::cout << "CWD: " << std::filesystem::current_path() << '\n';
-        scene.loadModel("../../../PathTracerTestScenes/CornellBox-trans.glb");
+        scene.loadModel(scenePath);
         VulkanRenderer renderer;
 
         renderer.initialize(window, scene, camera, renderWidth, renderHeight);
