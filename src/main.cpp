@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
     glm::vec3 position = {-10.0f, 17.0f, 0.0f};
     scene.addLight(SceneLight::Point(position, {1.0f, 1.0f, 1.0f}, 0.9f, 50.0f));
 
-    scene.addSphere({-9.43, 6.05, 4.9}, 3.0, {0.922, 0.482, 0.922}, 0.2f);
+    scene.addSphere({-9.43, 5.05, 7.6}, 3.0, {0.922, 0.482, 0.922}, 0.1f);
 
     // gltf import test
 
