@@ -117,12 +117,21 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     materialBinding.descriptorCount = 1;
     materialBinding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
-    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding,   imageBinding,  sphereBinding, lightBinding, ambientBinding,
-                                               cameraBinding, vertexBinding, indexBinding,  meshBinding,  materialBinding};
+    VkDescriptorSetLayoutBinding guidePosBinding{};
+    guidePosBinding.binding = 10;
+    guidePosBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    guidePosBinding.descriptorCount = 1;
+    guidePosBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+    VkDescriptorSetLayoutBinding guideNormalBinding = guidePosBinding;
+    guideNormalBinding.binding = 11;
+
+    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding,   imageBinding, sphereBinding, lightBinding,    ambientBinding,  cameraBinding,
+                                               vertexBinding, indexBinding, meshBinding,   materialBinding, guidePosBinding, guideNormalBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 10;
+    layoutInfo.bindingCount = 12;
     layoutInfo.pBindings = bindings;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS) {
@@ -353,4 +362,21 @@ void VulkanRTResources::shutdown() {
 void VulkanRTResources::updateCamera(const Camera& camera) {
     GPUCamera gpuCamera{camera.position(), camera.focalLength(), camera.forward(), camera.sensorWidth()};
     m_context->allocator().uploadBuffer(m_cameraBuffer, &gpuCamera, sizeof(GPUCamera));
+}
+
+void VulkanRTResources::bindGuides(VkImageView guidePos, VkImageView guideNormal) {
+    VkDescriptorImageInfo infos[2]{};
+    infos[0] = {VK_NULL_HANDLE, guidePos, VK_IMAGE_LAYOUT_GENERAL};
+    infos[1] = {VK_NULL_HANDLE, guideNormal, VK_IMAGE_LAYOUT_GENERAL};
+
+    VkWriteDescriptorSet writes[2]{};
+    for (uint32_t i = 0; i < 2; ++i) {
+        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[i].dstSet = m_descriptorSet;
+        writes[i].dstBinding = 10 + i;
+        writes[i].descriptorCount = 1;
+        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        writes[i].pImageInfo = &infos[i];
+    }
+    vkUpdateDescriptorSets(m_context->device(), 2, writes, 0, nullptr);
 }

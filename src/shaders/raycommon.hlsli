@@ -80,6 +80,12 @@ struct GPUMesh {
     uint materialIndex;
 };
 
+struct Guide {
+    float3 pos;
+    float3 normal;
+    bool set;
+};
+
 #define LIGHT_TYPE_DIRECTIONAL 0
 #define LIGHT_TYPE_POINT 1
 #define LIGHT_TYPE_SPOT 2
@@ -96,33 +102,28 @@ ConstantBuffer<FrameConstants> frameConstants;
 // VULKAN BINDINGS
 [[vk::binding(0, 0)]]
 RaytracingAccelerationStructure Scene;
-
 [[vk::binding(1, 0)]]
 RWTexture2D<float4> Output;
-
 [[vk::binding(2, 0)]]
 StructuredBuffer<GPUSphere> Spheres;
-
 [[vk::binding(3, 0)]]
 StructuredBuffer<GPULight> Lights;
-
 [[vk::binding(4, 0)]]
 ConstantBuffer<GPUAmbientLight> AmbientLight;
-
 [[vk::binding(5, 0)]]
 ConstantBuffer<GPUCamera> CameraData;
-
 [[vk::binding(6, 0)]]
 StructuredBuffer<GPUVertex> Vertices;
-
 [[vk::binding(7, 0)]]
 StructuredBuffer<uint> Indices;
-
 [[vk::binding(8, 0)]]
 StructuredBuffer<GPUMesh> Meshes;
-
 [[vk::binding(9, 0)]]
 StructuredBuffer<GPUMaterial> Materials;
+[[vk::binding(10, 0)]] 
+RWTexture2D<float4> GuidePos;    // xyz = world position
+[[vk::binding(11, 0)]] 
+RWTexture2D<float4> GuideNormal; // xyz = normal
 
 // Now that AmbientLight is declared, GetSkyColor can reference it.
 float3 GetSkyColor(float3 dir) {

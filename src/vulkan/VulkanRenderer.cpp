@@ -31,7 +31,10 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, const Ca
 
     createRayTracingImage();
 
+    m_denoiser.initialize(m_context, m_commands, m_renderExtent, m_rayTracingImageView);
+
     m_rayTracingResources.initialize(m_context, m_accelerationStructure, m_geometry, scene, m_camera, m_rayTracingImageView);
+    m_rayTracingResources.bindGuides(m_denoiser.guidePositionView(), m_denoiser.guideNormalView());
 
     PFN_vkCmdTraceRaysKHR m_vkCmdTraceRaysKHR = nullptr;
 
@@ -62,6 +65,8 @@ void VulkanRenderer::shutdown() {
     m_screenshot.shutdown();
 
     destroyFrames();
+
+    m_denoiser.shutdown();
 
     m_rayTracingPipeline.shutdown();
 
@@ -216,7 +221,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
         rtImageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
-    rtImageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+    rtImageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 
     rtImageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 
@@ -265,12 +270,13 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
     m_rayTracingPipeline.traceRaysFunction()(cmd, &raygenRegion, &missRegion, &hitRegion, &callableRegion, m_renderExtent.width,
                                              m_renderExtent.height, 1);
 
+    m_denoiser.record(cmd);
     // RT IMAGE BARRIER
 
     VkImageMemoryBarrier2 rtReadBarrier{};
     rtReadBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    rtReadBarrier.srcStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+    rtReadBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
 
     rtReadBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 

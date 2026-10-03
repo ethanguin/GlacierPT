@@ -16,6 +16,8 @@ public:
 
     void updateCamera(const Camera& camera);
 
+    void bindGuides(VkImageView guidePos, VkImageView guideNormal);
+
     VkDescriptorSetLayout descriptorSetLayout() const {
         return m_descriptorSetLayout;
     }

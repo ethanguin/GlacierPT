@@ -13,6 +13,7 @@
 #include "VulkanRTResources.hpp"
 #include "VulkanScreenshot.hpp"
 #include "VulkanGeo.hpp"
+#include "VulkanDenoiser.hpp"
 
 #include <array>
 #include <vector>
@@ -63,6 +64,7 @@ private:
     VulkanRTResources m_rayTracingResources;
     VulkanRTPipeline m_rayTracingPipeline;
     VulkanPresentationPipeline m_presentationPipeline;
+    VulkanDenoiser m_denoiser;
 
     std::vector<VkSemaphore> m_renderFinished;
 

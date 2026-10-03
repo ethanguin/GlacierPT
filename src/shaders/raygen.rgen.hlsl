@@ -88,7 +88,7 @@ float3 EvaluateLights(RayPayload payload, float3 N, float3 V) {
 //  sampleIndex : index of this sample within the pixel (drives stratification)
 //  rot         : per-pixel random rotation for the stratified sequence
 //  lobe        : in/out, max roughness seen on a rough hit (used to pick spp)
-float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIndex, float2 rot, inout float lobe) {
+float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIndex, float2 rot, inout float lobe, inout Guide guide) {
     PathRay stack[RAY_STACK_SIZE];
     uint sp = 0;
 
@@ -162,6 +162,13 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
 
                 float rough = clamp(payload.roughness, 0.0, MAX_ROUGHNESS);
                 bool roughPath = rough > MIN_ROUGHNESS;
+
+                bool isDelta = !roughPath && T > 0.5;
+                if (!guide.set && !isDelta) {
+                    guide.pos = payload.position;
+                    guide.normal = N;
+                    guide.set = true;
+                }
 
                 float3 reflDir;
                 float3 refrDir = cur.direction;
@@ -278,7 +285,6 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
             cur = stack[sp];
         }
     }
-
     return radiance;
 }
 
@@ -315,19 +321,28 @@ float3 ClampRadiance(float3 c) {
 
     float2 rot = Random2(seed);
 
-    float lobe = 0.0;
+        float lobe = 0.0;
 
-    // Sample 0: pixel centre, also measures how rough this pixel's lobes are.
+    Guide guide = (Guide)0;
+    const float3 LW = float3(0.2126, 0.7152, 0.0722);
+    float lumSum = 0.0;
+    float lum2Sum = 0.0;
+
+    // Sample 0: pixel centre; also measures lobe roughness and records the guide.
     float3 sum;
     {
         float2 uv = (float2(pixel) + 0.5) / float2(resolution);
         float2 ndc = uv * 2.0 - 1.0;
         float3 dir = normalize(camForward + camRight * (ndc.x * halfWidth) + camUp * (ndc.y * halfHeight));
 
-        sum = ClampRadiance(TracePath(camPos, dir, seed, 0, rot, lobe));
+        float3 s0 = ClampRadiance(TracePath(camPos, dir, seed, 0, rot, lobe, guide));
+        sum = s0;
+
+        float l0 = dot(s0, LW);
+        lumSum += l0;
+        lum2Sum += l0 * l0;
     }
 
-    // Adaptive sample count: smooth pixels stay at 1 spp, rough ones get more.
     uint spp = SPP_SMOOTH;
     if (lobe >= LOBE_ROUGH_MIN) {
         spp = SPP_ROUGH;
@@ -336,15 +351,29 @@ float3 ClampRadiance(float3 c) {
     }
 
     [loop] for (uint s = 1; s < spp; ++s) {
-        // Stratified sub-pixel jitter for AA, independent of the lobe sequence.
-        float2 jitter = frac(R2(s + 17u) + Random2(seed) * 0.0 + rot.yx);
+        float2 jitter = frac(R2(s + 17u) + rot.yx);
         float2 uv = (float2(pixel) + jitter) / float2(resolution);
         float2 ndc = uv * 2.0 - 1.0;
         float3 dir = normalize(camForward + camRight * (ndc.x * halfWidth) + camUp * (ndc.y * halfHeight));
 
         float unusedLobe = 0.0;
-        sum += ClampRadiance(TracePath(camPos, dir, seed, s, rot, unusedLobe));
+        Guide dummy = (Guide)0;
+        dummy.set = true; // only sample 0 writes the guide
+
+        float3 sk = ClampRadiance(TracePath(camPos, dir, seed, s, rot, unusedLobe, dummy));
+        sum += sk;
+
+        float lk = dot(sk, LW);
+        lumSum += lk;
+        lum2Sum += lk * lk;
     }
 
-    Output[pixel] = float4(sum / float(spp), 1.0);
+    float n = float(spp);
+    float mean = lumSum / n;
+    // Variance of the mean: s^2 / n, with s^2 the unbiased sample variance.
+    float variance = spp > 1 ? max(lum2Sum / n - mean * mean, 0.0) / (n - 1.0) : 0.0;
+
+    Output[pixel] = float4(sum / n, variance);
+    GuidePos[pixel] = float4(guide.pos, 0.0);
+    GuideNormal[pixel] = float4(guide.set ? guide.normal : float3(0.0, 0.0, 0.0), 0.0);
 }
