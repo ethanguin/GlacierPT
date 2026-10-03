@@ -1,5 +1,5 @@
-# VulkanPT
-A C++ Raytracer using Vulkan. Using opensource libraries and frameworks with custom implementations of shaders, GI, reflections, etc.
+# GlacierPT
+A C++ Raytracer using Vulkan and KHR extensions. Using opensource libraries and frameworks with custom implementations of shaders, GI, reflections, etc.
 
 Uses GLFW for windowing, vk_bootstrap for boilerplate, VMA for memory management.
 
@@ -16,13 +16,13 @@ Uses GLFW for windowing, vk_bootstrap for boilerplate, VMA for memory management
 - [x] single-time command buffer
 - [x] window (GLFW)
 - [x] minimal graphics pipeline
-- [ ] camera input/movement
-- [ ] gamepad input support
+- [x] camera input/movement
+- [x] gamepad input support (still need linux)
 
 ### Scene
 - [x] Minimal scene loading (spheres)
-- [ ] Minimal scene lighting (directional and point)
-- [ ] Scene Loading
+- [x] Minimal scene lighting (directional and point)
+- [x] Scene Loading
 - [ ] Area Lights
 - [ ] HDRI
 
@@ -30,18 +30,18 @@ Uses GLFW for windowing, vk_bootstrap for boilerplate, VMA for memory management
 - [x] HLSL SPIR-V compilation (DXC)
 - [x] BLAS/TLAS Builder
 - [x] RT pipeline + shader binding table
-- [ ] lightweight render graph
+- [x] lightweight render graph
 
 ### Shaders
 - [x] Raygen
 - [x] GGX
-- [ ] Shadow Rays
-- [ ] Reflection Rays
+- [x] Shadow Rays
+- [x] Reflection Rays
 - [ ] Ambient Occlusion
 - [ ] LTC (for area light sampling)
 - [ ] Global Illumination
 - [ ] Denoise (shadows/reflections)
-- [ ] Transmission/Refraction
+- [x] Transmission/Refraction
 - [ ] Transparency (with updated shadow ray logic)
 - [ ] Volumetrics (Henyey-Greenstein?)
 #### Additional Optional ones
