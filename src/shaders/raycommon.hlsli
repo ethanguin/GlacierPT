@@ -44,6 +44,12 @@ struct GPULight {
     uint type;
 
     float4 color; // .rgb = color, .a = intensity
+
+    float3 edgeU;
+    float pad0;
+
+    float3 edgeV;
+    float twoSided;
 };
 
 struct GPUAmbientLight {
@@ -89,6 +95,7 @@ struct Guide {
 #define LIGHT_TYPE_DIRECTIONAL 0
 #define LIGHT_TYPE_POINT 1
 #define LIGHT_TYPE_SPOT 2
+#define LIGHT_TYPE_AREA 3
 
 // SHARED BUFFERS
 struct FrameConstants {

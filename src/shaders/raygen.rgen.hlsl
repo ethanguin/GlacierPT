@@ -8,6 +8,7 @@ static const float LOBE_MEDIUM_MIN   = 0.0;  // lobe >  MIN_ROUGHNESS -> medium
 static const float LOBE_ROUGH_MIN    = 0.30; // lobe >= this          -> rough
 static const uint  SPLIT_MAX_DEPTH   = 1;    // below this depth rough hits split into both children; deeper hits pick one
 static const float MAX_SAMPLE_RADIANCE = 10.0; // per-sample firefly clamp (slightly biased)
+static const float AREA_LIGHT_LOBE = 0.1; // forces >1 spp on area-lit pixels so the denoiser gets variance (0.1 -> SPP_MEDIUM)
 
 // One pending ray in the (depth-first) ray tree.
 struct PathRay {
@@ -15,6 +16,7 @@ struct PathRay {
     float3 direction;
     float3 throughput;
     uint depth;
+    bool countEmission; // false after a rough reflection: NEE already covered the emitter
 };
 
 float MaxComponent(float3 v) {
@@ -27,7 +29,7 @@ float2 R2(uint n) {
 }
 
 // Direct lighting (all lights, hard shadows). N must face the viewer.
-float3 EvaluateLights(RayPayload payload, float3 N, float3 V) {
+float3 EvaluateLights(RayPayload payload, float3 N, float3 V, inout uint seed, inout float lobe) {
     float3 direct = 0.0;
 
     for (uint lightIdx = 0; lightIdx < frameConstants.LightCount; ++lightIdx) {
@@ -39,6 +41,27 @@ float3 EvaluateLights(RayPayload payload, float3 N, float3 V) {
 
         if (light.type == LIGHT_TYPE_DIRECTIONAL) {
             L = normalize(-light.direction);
+        } else if (light.type == LIGHT_TYPE_AREA) {
+            // One uniform area sample: pdf = 1/area, so weight = area * cosLight / dist^2.
+            float2 u = Random2(seed);
+            float3 samplePos = light.position + light.edgeU * (u.x * 2.0 - 1.0) + light.edgeV * (u.y * 2.0 - 1.0);
+
+            float3 lightCross = cross(light.edgeU, light.edgeV);
+            float lightArea = 4.0 * length(lightCross);
+            float3 lightN = normalize(lightCross);
+
+            float3 toLight = samplePos - payload.position;
+            float dist2 = max(dot(toLight, toLight), 0.01);
+            float dist = sqrt(dist2);
+            L = toLight / dist;
+
+            float cosLight = dot(lightN, -L);
+            if (light.twoSided > 0.5) cosLight = abs(cosLight);
+            if (cosLight <= 0.0) continue;
+
+            attenuation = lightArea * cosLight / dist2;
+            shadowMaxT = dist - 0.002;
+            lobe = max(lobe, AREA_LIGHT_LOBE);
         } else {
             float3 toLight = light.position - payload.position;
             float dist = length(toLight);
@@ -80,6 +103,45 @@ float3 EvaluateLights(RayPayload payload, float3 N, float3 V) {
     return direct;
 }
 
+// Ray vs. area-light quad. Returns t or -1.
+float IntersectQuad(GPULight light, float3 ro, float3 rd) {
+    float3 n = normalize(cross(light.edgeU, light.edgeV));
+    float denom = dot(n, rd);
+    if (abs(denom) < 1e-6) return -1.0;
+
+    float t = dot(light.position - ro, n) / denom;
+    if (t < 0.001) return -1.0;
+
+    float3 d = ro + rd * t - light.position;
+    float uu = dot(d, light.edgeU) / dot(light.edgeU, light.edgeU);
+    float vv = dot(d, light.edgeV) / dot(light.edgeV, light.edgeV);
+    if (abs(uu) > 1.0 || abs(vv) > 1.0) return -1.0;
+
+    return t;
+}
+
+// Nearest emitter closer than tLimit. Emitters are opaque; back faces of one-sided lights absorb.
+bool IntersectAreaLights(float3 ro, float3 rd, float tLimit, out float3 emission) {
+    emission = 0.0;
+    bool hit = false;
+    float bestT = tLimit;
+
+    for (uint i = 0; i < frameConstants.LightCount; ++i) {
+        GPULight light = Lights[i];
+        if (light.type != LIGHT_TYPE_AREA) continue;
+
+        float t = IntersectQuad(light, ro, rd);
+        if (t > 0.0 && t < bestT) {
+            bestT = t;
+            hit = true;
+
+            bool front = dot(cross(light.edgeU, light.edgeV), rd) < 0.0;
+            emission = (front || light.twoSided > 0.5) ? light.color.rgb * light.color.a : 0.0;
+        }
+    }
+    return hit;
+}
+
 // Opaque surfaces get direct + ambient + (rough) specular bounce.
 // Transmissive surfaces spawn a Fresnel-weighted reflection + refraction, both derived
 // from ONE sampled GGX microfacet normal so rough glass blurs what you see through it.
@@ -97,6 +159,7 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
     cur.direction = direction;
     cur.throughput = 1.0;
     cur.depth = 0;
+    cur.countEmission = true;
 
     float3 radiance = 0.0;
     uint raysTraced = 0;
@@ -123,7 +186,19 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
             TraceRay(Scene, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
             raysTraced++;
 
-            if (payload.hitT < 0.0) {
+            // Area lights aren't in the TLAS, so test them analytically against the
+            // closest scene hit (or the ray's TMax on a miss).
+            float tLimit = payload.hitT < 0.0 ? ray.TMax : payload.hitT;
+            float3 emission;
+
+            if (IntersectAreaLights(cur.origin, cur.direction, tLimit, emission)) {
+                // Emitters are opaque: the path ends here either way. Only add the
+                // emission if NEE hasn't already accounted for it.
+                if (cur.countEmission) {
+                    radiance += cur.throughput * emission;
+                }
+                alive = false;
+            } else if (payload.hitT < 0.0) {
                 radiance += cur.throughput * GetSkyColor(cur.direction);
                 alive = false;
             } else {
@@ -145,7 +220,7 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
 
                 float3 direct = 0.0;
                 if (T < 1.0) {
-                    direct = EvaluateLights(payload, N, V);
+                    direct = EvaluateLights(payload, N, V, seed, lobe);
                 }
 
                 float3 F0 = lerp(float3(0.04, 0.04, 0.04), payload.baseColor, payload.metallic);
@@ -234,12 +309,16 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
                 reflected.direction = reflDir;
                 reflected.throughput = cur.throughput * reflectWeight;
                 reflected.depth = cur.depth + 1;
+                // The opaque rough lobe's contribution from emitters was already gathered by NEE
+                // above, so don't count the emitter again if this bounce happens to hit it.
+                reflected.countEmission = !(roughPath && T < 1.0);
 
                 PathRay refracted;
                 refracted.origin = payload.position - N * 0.001;
                 refracted.direction = refrDir;
                 refracted.throughput = cur.throughput * refractWeight;
                 refracted.depth = cur.depth + 1;
+                refracted.countEmission = true; // NEE is skipped for the transmissive part
 
                 bool hasReflect = MaxComponent(reflected.throughput) >= MIN_THROUGHPUT;
                 bool hasRefract = MaxComponent(refracted.throughput) >= MIN_THROUGHPUT;

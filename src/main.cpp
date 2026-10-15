@@ -98,9 +98,11 @@ int main(int argc, char** argv) {
 
     scene.setAmbLight({0.05f, 0.75f, 1.0f}, 0.15f);
     glm::vec3 position = {-10.0f, 17.0f, 0.0f};
-    scene.addLight(SceneLight::Point(position, {1.0f, 1.0f, 1.0f}, 0.9f, 50.0f));
+    // scene.addLight(SceneLight::Point(position, {1.0f, 1.0f, 1.0f}, 0.9f, 50.0f));
 
     scene.addSphere({-9.43, 5.05, 7.6}, 3.0, {0.922, 0.482, 0.922}, 0.1f);
+
+    scene.addLight(SceneLight::Area({-10.0f, 17.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, 8.0f, 8.0f, {1.0f, 0.95f, 0.9f}, 2.0f));
 
     // gltf import test
 

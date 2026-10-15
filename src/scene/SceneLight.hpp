@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include "GPUResources.hpp"
 
 class SceneLight {
@@ -27,6 +28,23 @@ public:
         light.m_data.color = glm::vec4(color, intensity);
         light.m_data.range = range;
         light.m_data.type = static_cast<uint32_t>(LightType::Spot);
+        return light;
+    }
+
+    static SceneLight Area(const glm::vec3& center, const glm::vec3& normal, float width, float height, const glm::vec3& color, float intensity,
+                           bool twoSided = false) {
+        const glm::vec3 n = glm::normalize(normal);
+        const glm::vec3 ref = std::abs(n.y) < 0.99f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+        const glm::vec3 t = glm::normalize(glm::cross(ref, n));
+
+        SceneLight light;
+        light.m_data.position = center;
+        light.m_data.direction = n;
+        light.m_data.color = glm::vec4(color, intensity);
+        light.m_data.edgeU = t * (width * 0.5f);
+        light.m_data.edgeV = glm::cross(n, t) * (height * 0.5f); // cross(u, v) == n
+        light.m_data.twoSided = twoSided ? 1.0f : 0.0f;
+        light.m_data.type = static_cast<uint32_t>(LightType::Area);
         return light;
     }
 
