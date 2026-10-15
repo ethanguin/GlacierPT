@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
         }
     }
     uint32_t renderWidth = 1920;
-    uint32_t renderHeight = 1080;
+    uint32_t renderHeight = renderWidth * 9 / 16;
     std::cout << "Starting GlacierPT...\n";
 
     // Create GLFW window
@@ -97,12 +97,12 @@ int main(int argc, char** argv) {
     Scene scene;
 
     scene.setAmbLight({0.05f, 0.75f, 1.0f}, 0.15f);
-    glm::vec3 position = {-10.0f, 17.0f, 0.0f};
+    glm::vec3 position = {-9.3f, 19.2f, 0.0f};
     // scene.addLight(SceneLight::Point(position, {1.0f, 1.0f, 1.0f}, 0.9f, 50.0f));
 
     scene.addSphere({-9.43, 6.25, 4.5}, 3.0, {0.922, 0.482, 0.922}, 0.1f);
 
-    scene.addLight(SceneLight::Area({-10.0f, 17.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, 8.0f, 8.0f, {1.0f, 0.95f, 0.9f}, 2.0f));
+    scene.addLight(SceneLight::Area(position, {0.0f, -1.0f, 0.0f}, 8.0f, 8.0f, {1.0f, 0.95f, 0.9f}, 2.0f));
 
     // gltf import test
 
@@ -121,6 +121,8 @@ int main(int argc, char** argv) {
         std::cout << "CWD: " << std::filesystem::current_path() << '\n';
         scene.loadModel(scenePath);
         VulkanRenderer renderer;
+        renderer.kMaxAccumFrames = 8192;
+        renderer.m_denoiseEnabled = true;
 
         renderer.initialize(window, scene, camera, renderWidth, renderHeight);
 

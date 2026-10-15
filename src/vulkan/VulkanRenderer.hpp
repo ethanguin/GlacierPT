@@ -20,12 +20,13 @@
 
 class VulkanRenderer {
 public:
+    bool m_denoiseEnabled = false;
     void initialize(GLFWwindow* window, const Scene& scene, const Camera& camera, uint32_t renderWidth, uint32_t renderHeight);
     void shutdown();
 
     void drawFrame();
 
-    static constexpr uint32_t kMaxAccumFrames = 4096; // stop tracing after this many samples
+    uint32_t kMaxAccumFrames = 512; // stop tracing after this many samples
 
     void setCamera(const Camera& camera) {
         if (sameView(camera, m_camera)) {

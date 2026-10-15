@@ -80,35 +80,19 @@ void VulkanSwapchain::initialize(VkPhysicalDevice physicalDevice, VkDevice devic
 
     std::vector<VkPresentModeKHR> presentModes(presentModeCount);
 
-    for (const auto mode : presentModes) {
-        switch (mode) {
-        case VK_PRESENT_MODE_IMMEDIATE_KHR:
-            std::cout << "Present mode: IMMEDIATE\n";
-            break;
+    const VkPresentModeKHR presentMode = choosePresentMode(presentModes);
 
-        case VK_PRESENT_MODE_MAILBOX_KHR:
-            std::cout << "Present mode: MAILBOX\n";
-            break;
-
-        case VK_PRESENT_MODE_FIFO_KHR:
-            std::cout << "Present mode: FIFO\n";
-            break;
-
-        case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
-            std::cout << "Present mode: FIFO_RELAXED\n";
-            break;
-
-        default:
-            std::cout << "Present mode: OTHER\n";
-            break;
-        }
+    if (m_swapchain == VK_NULL_HANDLE && m_images.empty()) { // first creation only (recreate() clears these)
+        const char* name = presentMode == VK_PRESENT_MODE_MAILBOX_KHR        ? "MAILBOX"
+                           : presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR    ? "IMMEDIATE"
+                           : presentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ? "FIFO_RELAXED"
+                                                                             : "FIFO";
+        std::cout << "Present mode: " << name << '\n';
     }
 
     vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data());
 
     const VkSurfaceFormatKHR surfaceFormat = chooseSurfaceFormat(formats);
-
-    const VkPresentModeKHR presentMode = choosePresentMode(presentModes);
 
     const VkExtent2D extent = chooseExtent(capabilities, width, height);
 

@@ -81,6 +81,7 @@ void VulkanRenderer::shutdown() {
     m_geometry.shutdown();
 
     destroyRayTracingImage();
+    destroyAccumulationImage();
 
     m_commands.shutdown();
     m_swapchain.shutdown();
@@ -272,7 +273,9 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
         m_rayTracingPipeline.traceRaysFunction()(cmd, &raygenRegion, &missRegion, &hitRegion, &callableRegion, m_renderExtent.width,
                                                  m_renderExtent.height, 1);
 
-        m_denoiser.record(cmd);
+        if (m_denoiseEnabled) {
+            m_denoiser.record(cmd);
+        }
 
         VkImageMemoryBarrier2 rtReadBarrier{};
         rtReadBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
@@ -293,6 +296,8 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
         rtReadDependency.pImageMemoryBarriers = &rtReadBarrier;
 
         vkCmdPipelineBarrier2(cmd, &rtReadDependency);
+
+        ++m_accumFrame;
     }
 
     VkImage image = m_swapchain.images()[imageIndex];
