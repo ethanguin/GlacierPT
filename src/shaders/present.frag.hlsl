@@ -227,6 +227,19 @@ float3 SRGBToLinear(float3 c) {
     return lerp(lo, hi, step(0.04045, c));
 }
 
+uint PCG(uint v) {
+    uint state = v * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+// Two independent uniform [0,1) values per pixel.
+float2 DitherNoise(uint2 p) {
+    uint h1 = PCG(p.x + PCG(p.y));
+    uint h2 = PCG(h1 ^ 0x68E31DA4u);
+    return float2(h1, h2) / 4294967296.0;
+}
+
 // ---- Entry point ----------------------------------------------------------
 float4 PSMain(VertexOutput input) : SV_Target {
     float3 color;
@@ -241,7 +254,8 @@ float4 PSMain(VertexOutput input) : SV_Target {
 
     // Dither: ±0.5 LSB of an 8-bit channel, in linear space before hardware sRGB encode.
     float3 srgb = LinearToSRGB(saturate(color));
-    srgb += (InterleavedGradientNoise(input.position.xy) - 0.5) / 255.0;
+    float2 n = DitherNoise(uint2(input.position.xy));
+    srgb += (n.x + n.y - 1.0) / 255.0; // TPDF, ±1 LSB
     color = SRGBToLinear(srgb);
 
     return float4(color, 1.0);
