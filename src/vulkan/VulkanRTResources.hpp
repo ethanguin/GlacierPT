@@ -18,6 +18,8 @@ public:
 
     void bindGuides(VkImageView guidePos, VkImageView guideNormal);
 
+    void bindAccumulation(VkImageView view);
+
     VkDescriptorSetLayout descriptorSetLayout() const {
         return m_descriptorSetLayout;
     }

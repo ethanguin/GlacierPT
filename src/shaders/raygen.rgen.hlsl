@@ -392,25 +392,26 @@ float3 ClampRadiance(float3 c) {
     float3 camRight = normalize(cross(camForward, worldUp));
     float3 camUp = cross(camRight, camForward);
 
-    // Per-pixel seed, always initialised. (Noise is frozen per pixel without accumulation;
-    // the per-pixel rotation below keeps it decorrelated between neighbours.)
+    const uint frame = frameConstants.FrameIndex; // 0 = first sample after a camera change
+
+    // Per-pixel seed, decorrelated per frame so each frame draws fresh noise.
     uint seed = pixel.x + pixel.y * resolution.x;
     seed ^= 0x9E3779B9u;
     seed = PCGHash(seed);
+    seed = PCGHash(seed ^ PCGHash(frame + 1u));
 
     float2 rot = Random2(seed);
-
-        float lobe = 0.0;
+    float lobe = 0.0;
 
     Guide guide = (Guide)0;
     const float3 LW = float3(0.2126, 0.7152, 0.0722);
     float lumSum = 0.0;
     float lum2Sum = 0.0;
 
-    // Sample 0: pixel centre; also measures lobe roughness and records the guide.
     float3 sum;
     {
-        float2 uv = (float2(pixel) + 0.5) / float2(resolution);
+        float2 jitter0 = (frame == 0) ? float2(0.5, 0.5) : Random2(seed);
+        float2 uv = (float2(pixel) + jitter0) / float2(resolution);
         float2 ndc = uv * 2.0 - 1.0;
         float3 dir = normalize(camForward + camRight * (ndc.x * halfWidth) + camUp * (ndc.y * halfHeight));
 
@@ -448,11 +449,31 @@ float3 ClampRadiance(float3 c) {
     }
 
     float n = float(spp);
-    float mean = lumSum / n;
-    // Variance of the mean: s^2 / n, with s^2 the unbiased sample variance.
-    float variance = spp > 1 ? max(lum2Sum / n - mean * mean, 0.0) / (n - 1.0) : 0.0;
+    float3 frameColor = sum / n;
+    float frameLum = lumSum / n;
 
-    Output[pixel] = float4(sum / n, variance);
-    GuidePos[pixel] = float4(guide.pos, 0.0);
-    GuideNormal[pixel] = float4(guide.set ? guide.normal : float3(0.0, 0.0, 0.0), 0.0);
+    // Variance of this frame's estimate (within-frame, from the spp samples).
+    float frameVar = spp > 1 ? max(lum2Sum / n - frameLum * frameLum, 0.0) / (n - 1.0) : 0.0;
+
+    // Accumulate.
+    float4 acc = float4(frameColor, frameLum * frameLum);
+    if (frame > 0) {
+        acc += Accum[pixel];
+    }
+    Accum[pixel] = acc;
+
+    float N = float(frame + 1);
+    float3 mean = acc.rgb / N;
+    float meanL = dot(mean, LW);
+
+    float crossVar = frame > 0 ? max(acc.a / N - meanL * meanL, 0.0) / (N - 1.0) : 0.0;
+    float variance = max(crossVar, frameVar / N);
+
+    Output[pixel] = float4(mean, variance);
+
+    // Guides only change when the camera does, so write them on the first frame only.
+    if (frame == 0) {
+        GuidePos[pixel] = float4(guide.pos, 0.0);
+        GuideNormal[pixel] = float4(guide.set ? guide.normal : float3(0.0, 0.0, 0.0), 0.0);
+    }
 }

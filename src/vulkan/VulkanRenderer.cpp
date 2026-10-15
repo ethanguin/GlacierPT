@@ -30,11 +30,13 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, const Ca
     m_accelerationStructure.buildTLAS(scene);
 
     createRayTracingImage();
+    createAccumulationImage();
 
     m_denoiser.initialize(m_context, m_commands, m_renderExtent, m_rayTracingImageView);
 
     m_rayTracingResources.initialize(m_context, m_accelerationStructure, m_geometry, scene, m_camera, m_rayTracingImageView);
     m_rayTracingResources.bindGuides(m_denoiser.guidePositionView(), m_denoiser.guideNormalView());
+    m_rayTracingResources.bindAccumulation(m_accumImageView);
 
     PFN_vkCmdTraceRaysKHR m_vkCmdTraceRaysKHR = nullptr;
 
@@ -198,113 +200,100 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
+    // Once converged we skip tracing/denoising entirely and just re-present the last result.
+    const bool trace = m_accumFrame < kMaxAccumFrames;
+
     if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) {
         throw std::runtime_error("Failed to begin command buffer.");
     }
 
-    // TRANSITION TO RT
+    if (trace) {
+        // TRANSITION TO RT
 
-    VkImageMemoryBarrier2 rtImageBarrier{};
-    rtImageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+        VkImageMemoryBarrier2 rtImageBarrier{};
+        rtImageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
 
-    if (m_rayTracingImageInitialized) {
-        rtImageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        if (m_rayTracingImageInitialized) {
+            rtImageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+            rtImageBarrier.srcAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+            rtImageBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        } else {
+            rtImageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+            rtImageBarrier.srcAccessMask = VK_ACCESS_2_NONE;
+            rtImageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        }
 
-        rtImageBarrier.srcAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+        rtImageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR; // was missing (0)
+        rtImageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+        rtImageBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        rtImageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        rtImageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        rtImageBarrier.image = m_rayTracingImage.image;
+        rtImageBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
-        rtImageBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    } else {
-        rtImageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+        // Frame N+1's raygen reads/writes Accum (and rewrites the guides) after frame N's
+        // raygen + denoiser compute passes, so it needs RAW/WAW/WAR coverage.
+        VkMemoryBarrier2 accumBarrier{};
+        accumBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+        accumBarrier.srcStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        accumBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+        accumBarrier.dstStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+        accumBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 
-        rtImageBarrier.srcAccessMask = VK_ACCESS_2_NONE;
+        VkDependencyInfo rtDependency{};
+        rtDependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        rtDependency.memoryBarrierCount = 1;
+        rtDependency.pMemoryBarriers = &accumBarrier;
+        rtDependency.imageMemoryBarrierCount = 1;
+        rtDependency.pImageMemoryBarriers = &rtImageBarrier;
 
-        rtImageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        vkCmdPipelineBarrier2(cmd, &rtDependency);
+
+        m_rayTracingImageInitialized = true;
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rayTracingPipeline.pipeline());
+
+        VkDescriptorSet descriptorSet = m_rayTracingResources.descriptorSet();
+
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rayTracingPipeline.layout(), 0, 1, &descriptorSet, 0, nullptr);
+
+        // FrameIndex is now the accumulated sample count (0 = first frame after a camera change).
+        RaygenPushConstants pushConstants{};
+        pushConstants.frameIndex = m_accumFrame;
+        pushConstants.lightCount = m_lightCount;
+
+        vkCmdPushConstants(cmd, m_rayTracingPipeline.layout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(pushConstants), &pushConstants);
+
+        VkStridedDeviceAddressRegionKHR raygenRegion = m_rayTracingPipeline.raygenRegion();
+        VkStridedDeviceAddressRegionKHR missRegion = m_rayTracingPipeline.missRegion();
+        VkStridedDeviceAddressRegionKHR hitRegion = m_rayTracingPipeline.hitRegion();
+        VkStridedDeviceAddressRegionKHR callableRegion{};
+
+        m_rayTracingPipeline.traceRaysFunction()(cmd, &raygenRegion, &missRegion, &hitRegion, &callableRegion, m_renderExtent.width,
+                                                 m_renderExtent.height, 1);
+
+        m_denoiser.record(cmd);
+
+        VkImageMemoryBarrier2 rtReadBarrier{};
+        rtReadBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+        rtReadBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        rtReadBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+        rtReadBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        rtReadBarrier.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+        rtReadBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        rtReadBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        rtReadBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        rtReadBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        rtReadBarrier.image = m_rayTracingImage.image;
+        rtReadBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+        VkDependencyInfo rtReadDependency{};
+        rtReadDependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        rtReadDependency.imageMemoryBarrierCount = 1;
+        rtReadDependency.pImageMemoryBarriers = &rtReadBarrier;
+
+        vkCmdPipelineBarrier2(cmd, &rtReadDependency);
     }
-
-    rtImageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
-
-    rtImageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
-
-    rtImageBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    rtImageBarrier.image = m_rayTracingImage.image;
-
-    rtImageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-    rtImageBarrier.subresourceRange.baseMipLevel = 0;
-    rtImageBarrier.subresourceRange.levelCount = 1;
-    rtImageBarrier.subresourceRange.baseArrayLayer = 0;
-    rtImageBarrier.subresourceRange.layerCount = 1;
-
-    VkDependencyInfo rtDependency{};
-    rtDependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-
-    rtDependency.imageMemoryBarrierCount = 1;
-    rtDependency.pImageMemoryBarriers = &rtImageBarrier;
-
-    vkCmdPipelineBarrier2(cmd, &rtDependency);
-
-    m_rayTracingImageInitialized = true;
-
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rayTracingPipeline.pipeline());
-
-    VkDescriptorSet descriptorSet = m_rayTracingResources.descriptorSet();
-
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rayTracingPipeline.layout(), 0, 1, &descriptorSet, 0, nullptr);
-
-    // Push FrameIndex and light number to the ray-generation shader.
-    RaygenPushConstants pushConstants{};
-    pushConstants.frameIndex = m_currentFrame;
-    pushConstants.lightCount = m_lightCount;
-
-    vkCmdPushConstants(cmd, m_rayTracingPipeline.layout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(pushConstants), &pushConstants);
-
-    VkStridedDeviceAddressRegionKHR raygenRegion = m_rayTracingPipeline.raygenRegion();
-
-    VkStridedDeviceAddressRegionKHR missRegion = m_rayTracingPipeline.missRegion();
-
-    VkStridedDeviceAddressRegionKHR hitRegion = m_rayTracingPipeline.hitRegion();
-
-    VkStridedDeviceAddressRegionKHR callableRegion{};
-
-    m_rayTracingPipeline.traceRaysFunction()(cmd, &raygenRegion, &missRegion, &hitRegion, &callableRegion, m_renderExtent.width,
-                                             m_renderExtent.height, 1);
-
-    m_denoiser.record(cmd);
-    // RT IMAGE BARRIER
-
-    VkImageMemoryBarrier2 rtReadBarrier{};
-    rtReadBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-
-    rtReadBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-
-    rtReadBarrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
-
-    rtReadBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-
-    rtReadBarrier.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
-
-    rtReadBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    rtReadBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    rtReadBarrier.image = m_rayTracingImage.image;
-
-    rtReadBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-    rtReadBarrier.subresourceRange.baseMipLevel = 0;
-    rtReadBarrier.subresourceRange.levelCount = 1;
-
-    rtReadBarrier.subresourceRange.baseArrayLayer = 0;
-    rtReadBarrier.subresourceRange.layerCount = 1;
-
-    VkDependencyInfo rtReadDependency{};
-    rtReadDependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-
-    rtReadDependency.imageMemoryBarrierCount = 1;
-    rtReadDependency.pImageMemoryBarriers = &rtReadBarrier;
-
-    vkCmdPipelineBarrier2(cmd, &rtReadDependency);
 
     VkImage image = m_swapchain.images()[imageIndex];
 
@@ -312,30 +301,19 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-
     barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
-
     barrier.srcAccessMask = VK_ACCESS_2_NONE;
-
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-
     barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
-
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     VkDependencyInfo dependencyInfo{};
     dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-
     dependencyInfo.imageMemoryBarrierCount = 1;
     dependencyInfo.pImageMemoryBarriers = &barrier;
 
@@ -345,69 +323,44 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
 
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-
     colorAttachment.imageView = m_swapchain.imageViews()[imageIndex];
-
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-
     colorAttachment.clearValue.color = {{0.05f, 0.05f, 0.05f, 1.0f}};
 
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-
     renderingInfo.renderArea.offset = {0, 0};
-
     renderingInfo.renderArea.extent = m_swapchain.extent();
-
     renderingInfo.layerCount = 1;
-
     renderingInfo.colorAttachmentCount = 1;
-
     renderingInfo.pColorAttachments = &colorAttachment;
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 
     // RENDER PIPELINE
 
-    // Set up RT extents
     VkViewport viewport{};
     const float renderAspect = static_cast<float>(m_renderExtent.width) / static_cast<float>(m_renderExtent.height);
-
     const float windowAspect = static_cast<float>(m_swapchain.extent().width) / static_cast<float>(m_swapchain.extent().height);
 
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     if (windowAspect > renderAspect) {
-        // Window is wider than the render.
-        // Add pillarboxing on the left/right.
-
+        // Window is wider than the render: pillarbox left/right.
         viewport.height = static_cast<float>(m_swapchain.extent().height);
-
         viewport.width = viewport.height * renderAspect;
-
         viewport.x = (static_cast<float>(m_swapchain.extent().width) - viewport.width) * 0.5f;
-
         viewport.y = 0.0f;
     } else {
-        // Window is taller/narrower than the render.
-        // Add letterboxing on the top/bottom.
-
+        // Window is taller/narrower than the render: letterbox top/bottom.
         viewport.width = static_cast<float>(m_swapchain.extent().width);
-
         viewport.height = viewport.width / renderAspect;
-
         viewport.x = 0.0f;
-
         viewport.y = (static_cast<float>(m_swapchain.extent().height) - viewport.height) * 0.5f;
     }
-
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
@@ -430,17 +383,11 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageInde
     // PRESENTATION
 
     if (!m_screenshot.recordCopy(cmd, image, m_currentFrame)) {
-
         barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-
         barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-
         barrier.dstStageMask = VK_PIPELINE_STAGE_2_NONE;
-
         barrier.dstAccessMask = VK_ACCESS_2_NONE;
-
         barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
         barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
         vkCmdPipelineBarrier2(cmd, &dependencyInfo);
@@ -581,4 +528,62 @@ void VulkanCommands::freeCommandBuffer(VkCommandBuffer commandBuffer) {
     if (commandBuffer != VK_NULL_HANDLE) {
         vkFreeCommandBuffers(m_device, m_commandPool, 1, &commandBuffer);
     }
+}
+
+void VulkanRenderer::createAccumulationImage() {
+    VkImageCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    info.imageType = VK_IMAGE_TYPE_2D;
+    info.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    info.extent = {m_renderExtent.width, m_renderExtent.height, 1};
+    info.mipLevels = 1;
+    info.arrayLayers = 1;
+    info.samples = VK_SAMPLE_COUNT_1_BIT;
+    info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    info.usage = VK_IMAGE_USAGE_STORAGE_BIT;
+    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    m_accumImage = m_context.allocator().createImage(info, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = m_accumImage.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = info.format;
+    viewInfo.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    if (vkCreateImageView(m_context.device(), &viewInfo, nullptr, &m_accumImageView) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create accumulation image view.");
+    }
+
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+    barrier.srcAccessMask = VK_ACCESS_2_NONE;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = m_accumImage.image;
+    barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    VkDependencyInfo dependency{};
+    dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency.imageMemoryBarrierCount = 1;
+    dependency.pImageMemoryBarriers = &barrier;
+
+    VkCommandBuffer cmd = m_commands.beginSingleTimeCommands();
+    vkCmdPipelineBarrier2(cmd, &dependency);
+    m_commands.endSingleTimeCommands(cmd, m_context.graphicsQueue());
+}
+
+void VulkanRenderer::destroyAccumulationImage() {
+    if (m_accumImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(m_context.device(), m_accumImageView, nullptr);
+        m_accumImageView = VK_NULL_HANDLE;
+    }
+    m_context.allocator().destroyImage(m_accumImage);
 }

@@ -131,6 +131,8 @@ StructuredBuffer<GPUMaterial> Materials;
 RWTexture2D<float4> GuidePos;    // xyz = world position
 [[vk::binding(11, 0)]] 
 RWTexture2D<float4> GuideNormal; // xyz = normal
+[[vk::binding(12, 0)]]
+RWTexture2D<float4> Accum; // rgb = sum of per-frame radiance, a = sum of per-frame luminance^2
 
 // Now that AmbientLight is declared, GetSkyColor can reference it.
 float3 GetSkyColor(float3 dir) {

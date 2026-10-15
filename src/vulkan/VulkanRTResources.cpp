@@ -126,12 +126,19 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     VkDescriptorSetLayoutBinding guideNormalBinding = guidePosBinding;
     guideNormalBinding.binding = 11;
 
-    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding,   imageBinding, sphereBinding, lightBinding,    ambientBinding,  cameraBinding,
-                                               vertexBinding, indexBinding, meshBinding,   materialBinding, guidePosBinding, guideNormalBinding};
+    VkDescriptorSetLayoutBinding accumBinding{};
+    accumBinding.binding = 12;
+    accumBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    accumBinding.descriptorCount = 1;
+    accumBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding,     imageBinding,       sphereBinding, lightBinding, ambientBinding,
+                                               cameraBinding,   vertexBinding,      indexBinding,  meshBinding,  materialBinding,
+                                               guidePosBinding, guideNormalBinding, accumBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 12;
+    layoutInfo.bindingCount = 13;
     layoutInfo.pBindings = bindings;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS) {
@@ -141,8 +148,8 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     // Descriptor pool
 
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
-                                        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-                                        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6}, // was 2
+                                        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4},
+                                        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6},
                                         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2}};
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -379,4 +386,18 @@ void VulkanRTResources::bindGuides(VkImageView guidePos, VkImageView guideNormal
         writes[i].pImageInfo = &infos[i];
     }
     vkUpdateDescriptorSets(m_context->device(), 2, writes, 0, nullptr);
+}
+
+void VulkanRTResources::bindAccumulation(VkImageView view) {
+    VkDescriptorImageInfo info{VK_NULL_HANDLE, view, VK_IMAGE_LAYOUT_GENERAL};
+
+    VkWriteDescriptorSet write{};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = m_descriptorSet;
+    write.dstBinding = 12;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    write.pImageInfo = &info;
+
+    vkUpdateDescriptorSets(m_context->device(), 1, &write, 0, nullptr);
 }

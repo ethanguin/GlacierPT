@@ -25,9 +25,23 @@ public:
 
     void drawFrame();
 
+    static constexpr uint32_t kMaxAccumFrames = 4096; // stop tracing after this many samples
+
     void setCamera(const Camera& camera) {
+        if (sameView(camera, m_camera)) {
+            return; // still: keep accumulating, skip the uniform upload
+        }
         m_camera = camera;
         m_rayTracingResources.updateCamera(m_camera);
+        resetAccumulation();
+    }
+
+    void resetAccumulation() {
+        m_accumFrame = 0;
+    }
+
+    uint32_t accumulatedFrames() const {
+        return m_accumFrame;
     }
 
     void requestScreenshot(const std::string& filename) {
@@ -45,6 +59,17 @@ private:
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void recreateSwapchain();
+
+    static bool sameView(const Camera& a, const Camera& b) {
+        return a.position() == b.position() && a.forward() == b.forward() && a.focalLength() == b.focalLength() && a.sensorWidth() == b.sensorWidth();
+    }
+
+    void createAccumulationImage();
+    void destroyAccumulationImage();
+
+    uint32_t m_accumFrame = 0;
+    AllocatedImage m_accumImage{};
+    VkImageView m_accumImageView = VK_NULL_HANDLE;
 
     void submitFrame(VulkanFrame& frame, uint32_t imageIndex);
 
