@@ -269,11 +269,10 @@ void loadGltf(const std::filesystem::path& path, Model& model) {
 
     LoadContext ctx{gltfAsset.get(), model};
     ctx.baseDir = path.parent_path();
-    s
 
-        // Materials
+    // Materials
 
-        Material fallback{};
+    Material fallback{};
     fallback.baseColor = {0.8f, 0.8f, 0.8f, 1.0f};
     fallback.metallic = 0.0f;
     fallback.roughness = 0.5f;
