@@ -24,6 +24,8 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, const Ca
     m_accelerationStructure.initialize(m_context, m_commands);
 
     m_geometry.initialize(m_context, m_commands, scene.geometry());
+    m_textures.initialize(m_context, m_commands, scene.geometry());
+    m_environment.initialize(m_context, m_commands, scene.environment().path, scene.environment().intensity, scene.environment().rotationRadians);
 
     m_accelerationStructure.buildBLAS(scene);
     m_accelerationStructure.buildMeshBLAS(scene.geometry(), m_geometry);
@@ -37,6 +39,8 @@ void VulkanRenderer::initialize(GLFWwindow* window, const Scene& scene, const Ca
     m_rayTracingResources.initialize(m_context, m_accelerationStructure, m_geometry, scene, m_camera, m_rayTracingImageView);
     m_rayTracingResources.bindGuides(m_denoiser.guidePositionView(), m_denoiser.guideNormalView());
     m_rayTracingResources.bindAccumulation(m_accumImageView);
+    m_rayTracingResources.bindTextures(m_textures);
+    m_rayTracingResources.bindEnvironment(m_environment);
 
     PFN_vkCmdTraceRaysKHR m_vkCmdTraceRaysKHR = nullptr;
 
@@ -79,6 +83,10 @@ void VulkanRenderer::shutdown() {
     m_accelerationStructure.shutdown();
 
     m_geometry.shutdown();
+
+    m_environment.shutdown();
+
+    m_textures.shutdown();
 
     destroyRayTracingImage();
     destroyAccumulationImage();

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <span>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace asset {
@@ -17,20 +18,34 @@ struct Vertex {
 };
 static_assert(sizeof(Vertex) == 32);
 
-struct Material {
-    glm::vec4 baseColor; // linear
-    float metallic;
-    float roughness;
-    float transmission; // KHR_materials_transmission
-    float ior;          // KHR_materials_ior
+// Decoded 8-bit RGBA image. `srgb` decides the GPU format (sRGB for color data, UNORM for data textures).
+struct Image {
+    uint32_t width = 0;
+    uint32_t height = 0;
+    bool srgb = false;
+    std::vector<uint8_t> pixels; // tightly packed RGBA8
 };
-static_assert(sizeof(Material) == 32);
 
-// One record per mesh (= one glTF triangle primitive, or the equivalent from any
-// other source). Indices are LOCAL to the mesh (0..vertexCount-1); add firstVertex
-// to reach the global vertex index. A backend's acceleration-structure build and
-// its vertex fetch both read this same record, so there is nothing else to keep
-// in sync.
+// Texture fields are indices into Model::images(), or -1 for "no texture".
+// Must match GPUMaterial in raycommon.hlsli (64 bytes).
+struct Material {
+    glm::vec4 baseColor{1.0f}; // linear factor
+    float metallic = 0.0f;
+    float roughness = 1.0f;
+    float transmission = 0.0f; // KHR_materials_transmission
+    float ior = 1.5f;          // KHR_materials_ior
+
+    int32_t baseColorTexture = -1;         // sRGB
+    int32_t metallicRoughnessTexture = -1; // G = roughness, B = metallic
+    int32_t normalTexture = -1;            // tangent space, +Y up
+    int32_t emissiveTexture = -1;          // sRGB
+
+    glm::vec3 emissive{0.0f}; // emissiveFactor * KHR_materials_emissive_strength
+    float normalScale = 1.0f;
+};
+static_assert(sizeof(Material) == 64);
+
+// One record per mesh (= one glTF triangle primitive). Indices are LOCAL to the mesh.
 struct Mesh {
     uint32_t firstVertex;
     uint32_t vertexCount;
@@ -40,18 +55,18 @@ struct Mesh {
 };
 static_assert(sizeof(Mesh) == 20);
 
-// A placement of a mesh in the scene (glTF node -> mesh reference).
 struct MeshInstance {
     uint32_t mesh;
     glm::mat4 transform;
 };
 
-// All triangle geometry for a scene, stored as pooled arrays. This shape is
-// deliberately "chunk-friendly": each member is an independent, self-describing
-// array (count + raw bytes), which is exactly what a future binary container
-// format needs -- see BinaryFormat.hpp.
 class Model {
 public:
+    uint32_t addImage(Image image) {
+        m_images.push_back(std::move(image));
+        return static_cast<uint32_t>(m_images.size() - 1);
+    }
+
     uint32_t addMaterial(const Material& material) {
         m_materials.push_back(material);
         return static_cast<uint32_t>(m_materials.size() - 1);
@@ -86,25 +101,14 @@ public:
         m_instances.push_back({meshIndex, transform});
     }
 
-    const std::vector<Vertex>& vertices() const {
-        return m_vertices;
-    }
-    const std::vector<uint32_t>& indices() const {
-        return m_indices;
-    }
-    const std::vector<Mesh>& meshes() const {
-        return m_meshes;
-    }
-    const std::vector<Material>& materials() const {
-        return m_materials;
-    }
-    const std::vector<MeshInstance>& instances() const {
-        return m_instances;
-    }
+    const std::vector<Vertex>& vertices() const { return m_vertices; }
+    const std::vector<uint32_t>& indices() const { return m_indices; }
+    const std::vector<Mesh>& meshes() const { return m_meshes; }
+    const std::vector<Material>& materials() const { return m_materials; }
+    const std::vector<MeshInstance>& instances() const { return m_instances; }
+    const std::vector<Image>& images() const { return m_images; }
 
-    uint32_t materialCount() const {
-        return static_cast<uint32_t>(m_materials.size());
-    }
+    uint32_t materialCount() const { return static_cast<uint32_t>(m_materials.size()); }
 
 private:
     std::vector<Vertex> m_vertices;
@@ -112,6 +116,7 @@ private:
     std::vector<Mesh> m_meshes;
     std::vector<Material> m_materials;
     std::vector<MeshInstance> m_instances;
+    std::vector<Image> m_images;
 };
 
 } // namespace asset

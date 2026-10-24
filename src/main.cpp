@@ -33,6 +33,7 @@ void printUsage(const char* exe) {
 
 int main(int argc, char** argv) {
     std::string scenePath = "../../../PathTracerTestScenes/GlassWall.glb"; // default
+    std::string envPath;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -44,6 +45,13 @@ int main(int argc, char** argv) {
                 return 1;
             }
             scenePath = argv[++i];
+        } else if (arg == "-e" || arg == "--env") {
+            if (i + 1 >= argc) {
+                std::cerr << "Missing value for " << arg << "\n";
+                printUsage(argv[0]);
+                return 1;
+            }
+            envPath = argv[++i];
         } else if (arg == "-h" || arg == "--help") {
             printUsage(argv[0]);
             return 0;
@@ -118,6 +126,9 @@ int main(int argc, char** argv) {
     // Create Vulkan Renderer
 
     try {
+        if (!envPath.empty()) {
+            scene.setEnvironment(envPath, 1.0f, 0.0f);
+        }
         std::cout << "CWD: " << std::filesystem::current_path() << '\n';
         scene.loadModel(scenePath);
         VulkanRenderer renderer;

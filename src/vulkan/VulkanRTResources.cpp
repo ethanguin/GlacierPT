@@ -132,14 +132,49 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     accumBinding.descriptorCount = 1;
     accumBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
-    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding,     imageBinding,       sphereBinding, lightBinding, ambientBinding,
-                                               cameraBinding,   vertexBinding,      indexBinding,  meshBinding,  materialBinding,
-                                               guidePosBinding, guideNormalBinding, accumBinding};
+    const VkShaderStageFlags texStages = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
+
+    VkDescriptorSetLayoutBinding textureBinding{};
+    textureBinding.binding = 13;
+    textureBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    textureBinding.descriptorCount = VulkanTextures::kMaxTextures;
+    textureBinding.stageFlags = texStages;
+
+    VkDescriptorSetLayoutBinding textureSamplerBinding{};
+    textureSamplerBinding.binding = 14;
+    textureSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    textureSamplerBinding.descriptorCount = 1;
+    textureSamplerBinding.stageFlags = texStages;
+
+    VkDescriptorSetLayoutBinding envImageBinding = textureSamplerBinding;
+    envImageBinding.binding = 15;
+    envImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+
+    VkDescriptorSetLayoutBinding envSamplerBinding = textureSamplerBinding;
+    envSamplerBinding.binding = 16;
+
+    VkDescriptorSetLayoutBinding envParamsBinding = textureSamplerBinding;
+    envParamsBinding.binding = 17;
+    envParamsBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+    VkDescriptorSetLayoutBinding bindings[] = {tlasBinding,     imageBinding,       sphereBinding,   lightBinding,   ambientBinding,
+                                               cameraBinding,   vertexBinding,      indexBinding,    meshBinding,    materialBinding,
+                                               guidePosBinding, guideNormalBinding, accumBinding,    textureBinding, textureSamplerBinding,
+                                               envImageBinding, envSamplerBinding,  envParamsBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 13;
+    layoutInfo.bindingCount = 18;
     layoutInfo.pBindings = bindings;
+
+    VkDescriptorBindingFlags bindingFlags[18]{};
+    bindingFlags[13] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo{};
+    flagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    flagsInfo.bindingCount = 18;
+    flagsInfo.pBindingFlags = bindingFlags;
+    layoutInfo.pNext = &flagsInfo;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create ray tracing descriptor set layout.");
@@ -150,7 +185,9 @@ void VulkanRTResources::initialize(VulkanContext& context, VulkanAccelerationStr
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
                                         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4},
                                         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6},
-                                        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2}};
+                                        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
+                                        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VulkanTextures::kMaxTextures + 1},
+                                        {VK_DESCRIPTOR_TYPE_SAMPLER, 2}};
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -400,4 +437,64 @@ void VulkanRTResources::bindAccumulation(VkImageView view) {
     write.pImageInfo = &info;
 
     vkUpdateDescriptorSets(m_context->device(), 1, &write, 0, nullptr);
+}
+
+void VulkanRTResources::bindTextures(const VulkanTextures& textures) {
+    const auto& views = textures.views();
+
+    VkDescriptorImageInfo samplerInfo{};
+    samplerInfo.sampler = textures.sampler();
+
+    std::vector<VkDescriptorImageInfo> imageInfos(views.size());
+    for (size_t i = 0; i < views.size(); ++i) {
+        imageInfos[i] = {VK_NULL_HANDLE, views[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    }
+
+    VkWriteDescriptorSet writes[2]{};
+    uint32_t count = 0;
+
+    if (!imageInfos.empty()) { // an empty array is fine: binding 13 is PARTIALLY_BOUND
+        writes[count].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[count].dstSet = m_descriptorSet;
+        writes[count].dstBinding = 13;
+        writes[count].descriptorCount = static_cast<uint32_t>(imageInfos.size());
+        writes[count].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        writes[count].pImageInfo = imageInfos.data();
+        ++count;
+    }
+
+    writes[count].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[count].dstSet = m_descriptorSet;
+    writes[count].dstBinding = 14;
+    writes[count].descriptorCount = 1;
+    writes[count].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    writes[count].pImageInfo = &samplerInfo;
+    ++count;
+
+    vkUpdateDescriptorSets(m_context->device(), count, writes, 0, nullptr);
+}
+
+void VulkanRTResources::bindEnvironment(const VulkanEnvironment& environment) {
+    VkDescriptorImageInfo imageInfo{VK_NULL_HANDLE, environment.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkDescriptorImageInfo samplerInfo{};
+    samplerInfo.sampler = environment.sampler();
+    VkDescriptorBufferInfo bufferInfo{environment.paramsBuffer(), 0, sizeof(GPUEnvironment)};
+
+    VkWriteDescriptorSet writes[3]{};
+    for (auto& w : writes) {
+        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet = m_descriptorSet;
+        w.descriptorCount = 1;
+    }
+    writes[0].dstBinding = 15;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    writes[0].pImageInfo = &imageInfo;
+    writes[1].dstBinding = 16;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    writes[1].pImageInfo = &samplerInfo;
+    writes[2].dstBinding = 17;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes[2].pBufferInfo = &bufferInfo;
+
+    vkUpdateDescriptorSets(m_context->device(), 3, writes, 0, nullptr);
 }

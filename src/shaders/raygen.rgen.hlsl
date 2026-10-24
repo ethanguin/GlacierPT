@@ -206,7 +206,7 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
                 float3 V = -cur.direction;
 
                 // Flip the normal to face the incoming ray; remember which side we hit.
-                bool inside = dot(cur.direction, payload.normal) > 0.0;
+                bool inside = dot(cur.direction, payload.geoNormal) > 0.0; // use goemetry normal w/ normals now
                 float3 N = inside ? -payload.normal : payload.normal;
                 float NoV = saturate(dot(N, V));
 
@@ -215,6 +215,7 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
                     float3 sigma = -log(max(payload.baseColor, 0.001));
                     cur.throughput *= exp(-sigma * payload.hitT * ABSORPTION_SCALE);
                 }
+                radiance += cur.throughput * payload.emission;
 
                 // Opaque portion: direct + ambient
 
@@ -226,7 +227,7 @@ float3 TracePath(float3 origin, float3 direction, inout uint seed, uint sampleIn
                 float3 F0 = lerp(float3(0.04, 0.04, 0.04), payload.baseColor, payload.metallic);
                 float3 F_env = FresnelSchlick(F0, NoV);
                 float3 kD = (1.0 - F_env) * (1.0 - payload.metallic);
-                float3 ambient = kD * payload.baseColor / PI * AmbientLight.color.rgb * AmbientLight.color.a;
+                   float3 ambient = kD * payload.baseColor / PI * AmbientIrradiance(N);
 
                 radiance += cur.throughput * (1.0 - T) * (direct + ambient);
 

@@ -46,3 +46,12 @@ struct GPUSphere {
     glm::vec4 color;          // .rgb = color, .a = roughness
 };
 static_assert(sizeof(GPUSphere) == 32);
+
+struct GPUEnvironment {
+    glm::vec4 sh[9]; // cosine-convolved SH irradiance coefficients (rgb)
+    float intensity;
+    float rotation;   // radians about Y axis
+    uint32_t enabled; // 0 = no HDRI, use AmbientLight
+    float pad;
+};
+static_assert(sizeof(GPUEnvironment) == 160);

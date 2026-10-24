@@ -15,6 +15,12 @@ struct SceneSphere {
     float roughness; // 0 = mirror/clear glass, 1 = fully diffuse-ish lobe
 };
 
+struct SceneEnvironment {
+    std::filesystem::path path; // empty = none
+    float intensity = 1.0f;
+    float rotationRadians = 0.0f;
+};
+
 class Scene {
 public:
     void addSphere(const glm::vec3& pos, const float rad, const glm::vec3& color, const float roughness = 0.0f) {
@@ -32,6 +38,9 @@ public:
     void loadModel(const std::filesystem::path& path) {
         asset::loadGltf(path, m_geometry);
     }
+    void setEnvironment(const std::filesystem::path& hdr, float intensity = 1.0f, float rotationDegrees = 0.0f) {
+        m_environment = {hdr, intensity, glm::radians(rotationDegrees)};
+    }
 
     const std::vector<SceneSphere>& spheres() const {
         return m_spheres;
@@ -45,10 +54,14 @@ public:
     const asset::Model& geometry() const {
         return m_geometry;
     }
+    const SceneEnvironment& environment() const {
+        return m_environment;
+    };
 
 private:
     std::vector<SceneSphere> m_spheres;
     std::vector<SceneLight> m_lights;
     SceneAmbientLight m_ambLight;
     asset::Model m_geometry;
+    SceneEnvironment m_environment;
 };

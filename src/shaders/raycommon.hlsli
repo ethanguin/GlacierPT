@@ -1,6 +1,13 @@
 #ifndef RAYCOMMON
 #define RAYCOMMON
 
+#define MAX_TEXTURES 512
+
+#define LIGHT_TYPE_DIRECTIONAL 0
+#define LIGHT_TYPE_POINT 1
+#define LIGHT_TYPE_SPOT 2
+#define LIGHT_TYPE_AREA 3
+
 static const float PI = 3.14159265;
 
 static const uint  MAX_BOUNCES         = 8;   // glass needs more depth (enter + exit + reflections)
@@ -24,6 +31,8 @@ struct RayPayload {
     float transmission; // 0 = opaque, 1 = fully transmissive
     float ior;
     float hitT;
+    float3 geoNormal;
+    float3 emission;
 };
 
 struct ShadowPayload {
@@ -76,6 +85,20 @@ struct GPUMaterial {
     float roughness;
     float transmission;
     float ior;
+    int baseColorTexture;
+    int metallicRoughnessTexture;
+    int normalTexture;
+    int emissiveTexture;
+    float3 emissive;
+    float normalScale;
+};
+
+struct GPUEnvironment {
+    float4 sh[9];
+    float intensity;
+    float rotation;
+    uint enabled;
+    float pad;
 };
 
 struct GPUMesh {
@@ -91,11 +114,6 @@ struct Guide {
     float3 normal;
     bool set;
 };
-
-#define LIGHT_TYPE_DIRECTIONAL 0
-#define LIGHT_TYPE_POINT 1
-#define LIGHT_TYPE_SPOT 2
-#define LIGHT_TYPE_AREA 3
 
 // SHARED BUFFERS
 struct FrameConstants {
@@ -133,11 +151,60 @@ RWTexture2D<float4> GuidePos;    // xyz = world position
 RWTexture2D<float4> GuideNormal; // xyz = normal
 [[vk::binding(12, 0)]]
 RWTexture2D<float4> Accum; // rgb = sum of per-frame radiance, a = sum of per-frame luminance^2
+[[vk::binding(13, 0)]]
+Texture2D<float4> Textures[MAX_TEXTURES];
+[[vk::binding(14, 0)]]
+SamplerState TexSampler;
+[[vk::binding(15, 0)]]
+Texture2D<float4> EnvMap;
+[[vk::binding(16, 0)]]
+SamplerState EnvSampler;
+[[vk::binding(17, 0)]]
+ConstantBuffer<GPUEnvironment> Environment;
 
-// Now that AmbientLight is declared, GetSkyColor can reference it.
+float3 EnvRotate(float3 d) {
+    float s = sin(Environment.rotation);
+    float c = cos(Environment.rotation);
+    return float3(c * d.x - s * d.z, d.y, s * d.x + c * d.z);
+}
+
 float3 GetSkyColor(float3 dir) {
-    // return float3(0.0, 0.0, 0.0);
+    if (Environment.enabled != 0) {
+        float3 d = EnvRotate(dir);
+        float u = atan2(d.x, -d.z) * (0.5 / PI) + 0.5;
+        float v = acos(clamp(d.y, -1.0, 1.0)) / PI;
+        return EnvMap.SampleLevel(EnvSampler, float2(u, v), 0).rgb * Environment.intensity;
+    }
     return AmbientLight.color.rgb * AmbientLight.color.a;
+}
+
+float3 EnvIrradiance(float3 n) {
+    float3 d = EnvRotate(n);
+    float x = d.x, y = d.y, z = d.z;
+
+    float3 e = Environment.sh[0].rgb * 0.282095
+             + Environment.sh[1].rgb * (0.488603 * y)
+             + Environment.sh[2].rgb * (0.488603 * z)
+             + Environment.sh[3].rgb * (0.488603 * x)
+             + Environment.sh[4].rgb * (1.092548 * x * y)
+             + Environment.sh[5].rgb * (1.092548 * y * z)
+             + Environment.sh[6].rgb * (0.315392 * (3.0 * z * z - 1.0))
+             + Environment.sh[7].rgb * (1.092548 * x * z)
+             + Environment.sh[8].rgb * (0.546274 * (x * x - y * y));
+
+    return max(e, 0.0) * Environment.intensity;
+}
+
+// Diffuse ambient term: HDRI irradiance if present, otherwise ambient
+float3 AmbientIrradiance(float3 n) {
+    if (Environment.enabled != 0) {
+        return EnvIrradiance(n);
+    }
+    return AmbientLight.color.rgb * AmbientLight.color.a;
+}
+
+float4 SampleTexture(int index, float2 uv) {
+    return Textures[NonUniformResourceIndex(index)].SampleLevel(TexSampler, uv, 0);
 }
 
 // SHARED FUNCTIONS

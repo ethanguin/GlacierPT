@@ -54,30 +54,23 @@ FetchContent_MakeAvailable(vma)
 FetchContent_MakeAvailable(glm)
 FetchContent_MakeAvailable(fastgltf)
 
-set(STB_IMAGE_WRITE_DIR "${CMAKE_BINARY_DIR}/external/stb")
-set(STB_IMAGE_WRITE_HEADER "${STB_IMAGE_WRITE_DIR}/stb_image_write.h")
+set(STB_DIR "${CMAKE_BINARY_DIR}/external/stb")
+file(MAKE_DIRECTORY "${STB_DIR}")
 
-file(MAKE_DIRECTORY "${STB_IMAGE_WRITE_DIR}")
-
-if(NOT EXISTS "${STB_IMAGE_WRITE_HEADER}")
-    file(DOWNLOAD
-        "https://raw.githubusercontent.com/nothings/stb/1ee679c/stb_image_write.h"
-        "${STB_IMAGE_WRITE_HEADER}"
-        SHOW_PROGRESS
-        TLS_VERIFY ON
-        STATUS STB_DOWNLOAD_STATUS
-        LOG STB_DOWNLOAD_LOG
-    )
-
-    list(GET STB_DOWNLOAD_STATUS 0 STB_DOWNLOAD_CODE)
-
-    if(NOT STB_DOWNLOAD_CODE EQUAL 0)
-        message(FATAL_ERROR
-            "Failed to download stb_image_write.h:\n"
-            "${STB_DOWNLOAD_LOG}"
+foreach(STB_FILE stb_image_write.h stb_image.h)
+    if(NOT EXISTS "${STB_DIR}/${STB_FILE}")
+        file(DOWNLOAD
+            "https://raw.githubusercontent.com/nothings/stb/1ee679c/${STB_FILE}"
+            "${STB_DIR}/${STB_FILE}"
+            TLS_VERIFY ON
+            STATUS STB_DOWNLOAD_STATUS
         )
+        list(GET STB_DOWNLOAD_STATUS 0 STB_DOWNLOAD_CODE)
+        if(NOT STB_DOWNLOAD_CODE EQUAL 0)
+            message(FATAL_ERROR "Failed to download ${STB_FILE}: ${STB_DOWNLOAD_STATUS}")
+        endif()
     endif()
-endif()
+endforeach()
 
 file(GLOB_RECURSE GLACIERPT_SRC_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -90,7 +83,7 @@ add_executable(GlacierPT
 target_include_directories(GlacierPT
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        "${STB_IMAGE_WRITE_DIR}"
+        "${STB_DIR}"
 )
 
 target_compile_features(GlacierPT PRIVATE cxx_std_20)
@@ -246,6 +239,7 @@ foreach(SHADER_SOURCE ${SHADER_SOURCES})
                         -T ${SHADER_PROFILE}
                         -fspv-target-env=vulkan1.3
                         -fspv-extension=SPV_KHR_ray_tracing
+                        -fspv-extension=SPV_EXT_descriptor_indexing
                         -Fo "${SHADER_OUTPUT}"
                         "${SHADER_SOURCE}"
 

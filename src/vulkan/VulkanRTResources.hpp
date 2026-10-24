@@ -6,6 +6,8 @@
 #include "VulkanContext.hpp"
 #include "VulkanAccelerationStructure.hpp"
 #include "VulkanGeo.hpp"
+#include "VulkanTextures.hpp"
+#include "VulkanEnvironment.hpp"
 
 class VulkanRTResources {
 public:
@@ -19,6 +21,10 @@ public:
     void bindGuides(VkImageView guidePos, VkImageView guideNormal);
 
     void bindAccumulation(VkImageView view);
+
+    void bindTextures(const VulkanTextures& textures);
+
+    void bindEnvironment(const VulkanEnvironment& environment);
 
     VkDescriptorSetLayout descriptorSetLayout() const {
         return m_descriptorSetLayout;

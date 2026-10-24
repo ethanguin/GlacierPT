@@ -128,10 +128,17 @@ void VulkanContext::createSurface(GLFWwindow* window) {
 }
 
 void VulkanContext::configureDeviceFeatures() {
+    m_deviceFeatures = {};
+    m_deviceFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+
     m_features12 = {};
     m_features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
     m_features12.bufferDeviceAddress = VK_TRUE;
+    m_features12.descriptorIndexing = VK_TRUE;
+    m_features12.runtimeDescriptorArray = VK_TRUE;
+    m_features12.descriptorBindingPartiallyBound = VK_TRUE;
+    m_features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 
     m_features13 = {};
     m_features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -160,6 +167,7 @@ void VulkanContext::selectPhysicalDevice() {
                                     .add_required_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
                                     .add_required_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME)
 
+                                    .set_required_features(m_deviceFeatures)
                                     .set_required_features_12(m_features12)
                                     .set_required_features_13(m_features13)
 
